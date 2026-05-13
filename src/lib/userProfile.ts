@@ -20,6 +20,7 @@ export interface AppSettings {
   countdownSeconds: number;
   confidenceThreshold: number;
   hasCompletedOnboarding: boolean;
+  voiceEnabled?: boolean;
 }
 
 const DEFAULT_PROFILE: UserProfile = {
