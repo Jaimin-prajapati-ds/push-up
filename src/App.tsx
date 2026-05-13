@@ -14,8 +14,8 @@ import { Settings } from './views/Settings';
 import { Onboarding } from './views/Onboarding';
 import { hasCompletedOnboarding } from './lib/userProfile';
 import { initializeAdMob } from './lib/admob';
+import { initializePurchases } from './lib/subscription';
 import { Capacitor } from '@capacitor/core';
-import { Purchases } from '@revenuecat/purchases-capacitor';
 import { setupDailyReminder } from './lib/notifications';
 import { SplashScreen } from '@capacitor/splash-screen';
 
@@ -34,19 +34,7 @@ export default function App() {
 
     initializeAdMob();
     
-    const initPurchases = async () => {
-      if (!Capacitor.isNativePlatform()) return;
-      try {
-        // Replace with actual RevenueCat API Keys
-        await Purchases.configure({ apiKey: import.meta.env.VITE_REVENUECAT_KEY || "goog_TEST_API_KEY" });
-        const customerInfo = await Purchases.getCustomerInfo();
-        const isPro = typeof customerInfo.entitlements.active['pro_access'] !== "undefined";
-        localStorage.setItem('pushchamp_is_pro', isPro ? 'true' : 'false');
-      } catch (e) {
-        console.error("Failed to init RevenueCat", e);
-      }
-    };
-    initPurchases();
+    initializePurchases();
   }, []);
 
   const renderView = () => {

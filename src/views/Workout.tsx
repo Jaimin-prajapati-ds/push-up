@@ -1,9 +1,12 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { usePoseDetection } from '@/src/hooks/usePoseDetection';
-import { Square, Pause, Accessibility, Play, Loader2 } from "lucide-react";
+import { initializeAdMob, showBannerAd, hideBannerAd } from '@/src/lib/admob';
+import { useReadyPose } from '@/src/hooks/useReadyPose';
 import { cn } from '@/src/lib/utils';
+import { Square, Pause, Accessibility, Play, Loader2 } from "lucide-react";
 import { Countdown } from '@/src/components/Countdown';
 import { RepAnimation, MilestoneAnimation } from '@/src/components/RepAnimation';
+import { initializePurchases } from '@/src/lib/subscription';
 import { playRepSound, playMilestoneSound } from '@/src/lib/sounds';
 import { vibrateRep, vibrateMilestone } from '@/src/lib/haptics';
 import { requestWakeLock, releaseWakeLock } from '@/src/lib/wakelock';
@@ -25,9 +28,32 @@ export function Workout({ onStop }: { onStop: (reps: number, durationSeconds: nu
   const [camError, setCamError] = useState<string | null>(null);
   const lastSpokenRef = useRef<number>(0);
   
+  const isPro = localStorage.getItem('pushchamp_is_pro') === 'true';
   const settings = getAppSettings();
 
-  // Wake lock
+  // Initialize AdMob and subscription status on mount
+  useEffect(() => {
+    initializeAdMob();
+    initializePurchases();
+    if (!isPro) {
+      showBannerAd();
+    }
+    // Offline ad handling
+    const handleOnline = () => {
+      if (!isPro) showBannerAd();
+    };
+    const handleOffline = () => {
+      hideBannerAd();
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      hideBannerAd();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     if (settings.keepScreenOn) {
       requestWakeLock();
@@ -141,6 +167,7 @@ export function Workout({ onStop }: { onStop: (reps: number, durationSeconds: nu
   const { isLoaded, reps, isDown, isVisible, formFeedback } = usePoseDetection(
     videoRef, isPaused || showCountdown, drawSkeleton, handleRep, handleMilestone
   );
+const { isReady, readyScore } = useReadyPose(videoRef, isPaused || showCountdown, drawSkeleton);
 
   // Form feedback speech coaching
   useEffect(() => {
@@ -220,6 +247,15 @@ export function Workout({ onStop }: { onStop: (reps: number, durationSeconds: nu
           </div>
         </div>
       )}
+{/* Ready overlay */}
+{!isReady && !showCountdown && (
+  <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-20">
+    <div className="text-center text-white font-display-lg">
+      <p>Stand straight, feet hip‑width apart.</p>
+      <p className="mt-2 text-sm opacity-80">When the green skeleton steadies, you’re ready.</p>
+    </div>
+  </div>
+)}
 
       {/* Camera feed */}
       <video ref={videoRef} className="absolute inset-0 z-0 w-full h-full object-cover" playsInline muted />
@@ -288,24 +324,15 @@ export function Workout({ onStop }: { onStop: (reps: number, durationSeconds: nu
           </div>
 
           <div className="w-full flex justify-between gap-4">
-            <button 
-              onClick={async () => {
-                if (reps === 0) {
-                  onStop(0, elapsed);
-                  return;
-                }
-                setIsPaused(true);
-                const success = await showRewardVideo();
-                if (success) {
+            <button
+                disabled={!isReady}
+                onClick={() => {
                   onStop(reps, elapsed);
-                } else {
-                  onStop(reps, elapsed);
-                }
-              }} 
-              className="flex-1 bg-transparent text-tertiary font-display-lg text-body-lg uppercase py-4 rounded-lg flex justify-center items-center gap-2 border border-surface-variant hover:bg-surface-container transition-colors shadow-lg leading-none active:scale-95"
+                }}
+                className="flex-1 bg-transparent text-tertiary font-display-lg text-body-lg uppercase py-4 rounded-lg flex justify-center items-center gap-2 border border-surface-variant hover:bg-surface-container transition-colors shadow-lg leading-none active:scale-95"
             >
-              <Square className="w-5 h-5 fill-current" />
-              Stop
+                <Square className="w-5 h-5 fill-current" />
+                Stop
             </button>
             <button onClick={handlePause} className="flex-1 bg-primary-fixed text-on-primary-fixed font-display-lg text-body-lg uppercase py-4 rounded-lg flex justify-center items-center gap-2 hover:bg-primary-fixed-dim transition-colors shadow-[0_4px_20px_rgba(195,244,0,0.3)] leading-none active:scale-95">
               {isPaused ? <Play className="w-5 h-5 fill-current" /> : <Pause className="w-5 h-5 fill-current" />}
