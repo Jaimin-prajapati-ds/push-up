@@ -5,6 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
+import { SitUps } from './views/SitUps';
+import { PermissionScreen } from './components/PermissionScreen';
 import { Dashboard } from './views/Dashboard';
 import { Workout } from './views/Workout';
 import { History } from './views/History';
@@ -19,12 +21,14 @@ import { Capacitor } from '@capacitor/core';
 import { setupDailyReminder } from './lib/notifications';
 import { SplashScreen } from '@capacitor/splash-screen';
 
-type ViewType = "dashboard" | "workout" | "history" | "summary" | "profile" | "settings";
+type ViewType = "dashboard" | "workout" | "situps" | "history" | "summary" | "profile" | "settings";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>("dashboard");
   const [lastWorkout, setLastWorkout] = useState<{reps: number, durationSeconds: number}>({reps: 0, durationSeconds: 0});
   const [showOnboarding, setShowOnboarding] = useState(!hasCompletedOnboarding());
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState<boolean>(false);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -35,6 +39,14 @@ export default function App() {
     initializeAdMob();
     
     initializePurchases();
+
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
   }, []);
 
   const renderView = () => {
@@ -43,6 +55,11 @@ export default function App() {
         return <Dashboard onStartWorkout={() => setCurrentView("workout")} onOpenSettings={() => setCurrentView("settings")} />;
       case "workout":
         return <Workout onStop={(reps, durationSeconds) => {
+          setLastWorkout({ reps, durationSeconds });
+          setCurrentView("summary");
+        }} />;
+      case "situps":
+        return <SitUps onStop={(reps, durationSeconds) => {
           setLastWorkout({ reps, durationSeconds });
           setCurrentView("summary");
         }} />;
@@ -66,8 +83,16 @@ export default function App() {
   return (
     <>
       {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
-      {renderView()}
-      {currentView !== "workout" && currentView !== "summary" && currentView !== "settings" && (
+      {!cameraPermissionGranted && <PermissionScreen onGranted={() => setCameraPermissionGranted(true)} />}
+      {isOnline ? renderView() : (
+        <div className="fixed inset-0 flex items-center justify-center bg-surface/90 backdrop-blur-sm">
+          <div className="text-center p-8 bg-surface-container rounded-xl shadow-lg">
+            <h2 className="text-2xl font-bold text-primary">Internet Required</h2>
+            <p className="mt-4 text-on-surface-variant">Please connect to the internet to use the app.</p>
+          </div>
+        </div>
+      )}
+      {isOnline && cameraPermissionGranted && currentView !== "workout" && currentView !== "summary" && currentView !== "settings" && (
         <Navigation 
           currentView={currentView as any} 
           onChangeView={setCurrentView as any} 

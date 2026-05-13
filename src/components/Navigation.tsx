@@ -12,6 +12,7 @@ export function Navigation({ currentView, onChangeView }: NavigationProps) {
   const items = [
     { view: "dashboard" as const, icon: LayoutDashboard, label: "Home" },
     { view: "workout" as const, icon: Activity, label: "Workout" },
+    { view: "situps" as const, icon: Activity, label: "Sit‑Ups" },
     { view: "history" as const, icon: History, label: "History" },
     { view: "profile" as const, icon: User, label: "Profile" },
   ];
