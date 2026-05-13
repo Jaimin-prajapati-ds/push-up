@@ -40,6 +40,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   countdownSeconds: 5,
   confidenceThreshold: 0.45,
   hasCompletedOnboarding: false,
+  voiceEnabled: false,
 };
 
 const PROFILE_KEY = 'pushchamp_profile';
