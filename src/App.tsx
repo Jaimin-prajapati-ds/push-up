@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { SitUps } from './views/SitUps';
-import { PermissionScreen } from './components/PermissionScreen';
+import PermissionScreen from './components/PermissionScreen';
 import { Dashboard } from './views/Dashboard';
 import { Workout } from './views/Workout';
 import { History } from './views/History';
