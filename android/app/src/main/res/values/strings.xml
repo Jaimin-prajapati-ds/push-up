@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PushChamp</string>
+    <string name="title_activity_main">PushChamp</string>
+    <string name="package_name">com.pushchamp.app</string>
+    <string name="custom_url_scheme">com.pushchamp.app</string>
+</resources>
