@@ -1,42 +1,48 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
-export async function setupDailyReminder() {
-  if (!Capacitor.isNativePlatform()) return;
-
+export const scheduleDailyReminder = async () => {
   try {
-    // Request permission first
-    const permission = await LocalNotifications.requestPermissions();
-    if (permission.display !== 'granted') return;
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== 'granted') {
+      const req = await LocalNotifications.requestPermissions();
+      if (req.display !== 'granted') return;
+    }
 
     // Clear existing to avoid duplicates
-    await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
+    await LocalNotifications.cancel({ notifications: [{ id: 101 }] });
 
-    // Schedule a daily notification at 7:00 PM (19:00)
     await LocalNotifications.schedule({
       notifications: [
         {
-          title: "PushChamp Time! 🔥",
-          body: "Don't break your streak! Drop down and give me 20!",
-          id: 1,
-          schedule: {
+          title: "TIME FOR YOUR WORKOUT",
+          body: "Maintain your daily streak. A quick session is all it takes to stay fit.",
+          id: 101,
+          schedule: { 
             allowWhileIdle: true,
-            every: 'day', // Repeats daily
-            on: {
-              hour: 19,
-              minute: 0
-            }
+            on: { hour: 10, minute: 0 }, // Every day at 10 AM
+            repeats: true 
           },
-          sound: undefined,
-          attachments: undefined,
+          smallIcon: "res://ic_stat_name",
           actionTypeId: "",
           extra: null
         }
       ]
     });
-    
-    console.log("Daily reminder scheduled.");
-  } catch (error) {
-    console.error("Error setting up notifications", error);
+    console.log('Daily reminder scheduled');
+  } catch (e) {
+    console.error('Notification scheduling failed', e);
   }
-}
+};
+
+export const triggerRepHaptic = async () => {
+  try {
+    await Haptics.impact({ style: ImpactStyle.Heavy });
+  } catch (e) {}
+};
+
+export const triggerSuccessHaptic = async () => {
+  try {
+    await Haptics.notification({ type: NotificationType.Success });
+  } catch (e) {}
+};

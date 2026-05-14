@@ -1,103 +1,135 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { useState, useEffect } from 'react';
-import { Navigation } from './components/Navigation';
-import { SitUps } from './views/SitUps';
-import PermissionScreen from './components/PermissionScreen';
+import React, { useState, useEffect } from 'react';
 import { Dashboard } from './views/Dashboard';
 import { Workout } from './views/Workout';
-import { History } from './views/History';
 import { Summary } from './views/Summary';
-import { Profile } from './views/Profile';
-import { Settings } from './views/Settings';
 import { Onboarding } from './views/Onboarding';
-import { hasCompletedOnboarding } from './lib/userProfile';
+import PermissionScreen from './components/PermissionScreen';
+import { Navigation, ViewType } from './components/Navigation';
+import History from './views/History';
+import Profile from './views/Profile';
+import { PushPass } from './views/PushPass';
+import { Settings } from './views/Settings';
+import { completeOnboarding, hasCompletedOnboarding } from './lib/userProfile';
+import { scheduleDailyReminder } from './lib/notifications';
 import { initializeAdMob } from './lib/admob';
-import { initializePurchases } from './lib/subscription';
-import { Capacitor } from '@capacitor/core';
-import { setupDailyReminder } from './lib/notifications';
+import { initializePurchases, isUserSubscriber } from './lib/subscription';
 import { SplashScreen } from '@capacitor/splash-screen';
-
-type ViewType = "dashboard" | "workout" | "situps" | "history" | "summary" | "profile" | "settings";
+import { Camera } from '@capacitor/camera';
+import { setAdProStatus } from './lib/admob';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewType>("dashboard");
-  const [lastWorkout, setLastWorkout] = useState<{reps: number, durationSeconds: number}>({reps: 0, durationSeconds: 0});
-  const [showOnboarding, setShowOnboarding] = useState(!hasCompletedOnboarding());
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-  const [cameraPermissionGranted, setCameraPermissionGranted] = useState<boolean>(false);
+  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
+  const [lastWorkoutData, setLastWorkoutData] = useState<{ reps: number; duration: number } | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isSubscriber, setIsSubscriber] = useState(false);
 
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      SplashScreen.hide({ fadeOutDuration: 500 });
-      setupDailyReminder();
+    async function init() {
+      try {
+        await initializeAdMob();
+        const { showAppOpenAd } = await import('./lib/admob');
+        await showAppOpenAd();
+        await initializePurchases();
+        await scheduleDailyReminder(); // Schedule notifications on launch
+        
+        const isDone = hasCompletedOnboarding();
+        setOnboarded(isDone);
+        
+        // Check subscriber status
+        const subStatus = await isUserSubscriber();
+        setIsSubscriber(subStatus);
+        setAdProStatus(subStatus);
+
+        // Fix 1: Check permissions on launch
+        const savedPerm = localStorage.getItem('pushchamp_cam_perm') === 'true';
+        if (savedPerm) {
+          setHasPermissions(true);
+        } else {
+          const perm = await Camera.checkPermissions();
+          if (perm.camera === 'granted') {
+            setHasPermissions(true);
+            localStorage.setItem('pushchamp_cam_perm', 'true');
+          } else {
+            setHasPermissions(false);
+          }
+        }
+
+        // Hide splash after logic
+        setTimeout(() => {
+          SplashScreen.hide();
+          setIsInitializing(false);
+        }, 300); // Super snappy launch
+      } catch (e) {
+        setIsInitializing(false);
+      }
     }
-
-    initializeAdMob();
-    
-    initializePurchases();
-
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
-    };
+    init();
   }, []);
+
+  const handleOnboardingComplete = () => {
+    completeOnboarding();
+    setOnboarded(true);
+  };
+
+  const handleWorkoutStop = async (reps: number, duration: number) => {
+    setLastWorkoutData({ reps, duration });
+    setCurrentView('summary');
+    
+    // Earning: Show full-screen ad when workout ends
+    try {
+      const { showInterstitial } = await import('./lib/admob');
+      await showInterstitial();
+    } catch (e) {}
+  };
+
+  if (isInitializing) return null;
+
+  if (!onboarded) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  if (hasPermissions === false || hasPermissions === null) {
+    return <PermissionScreen onGranted={() => {
+      setHasPermissions(true);
+      localStorage.setItem('pushchamp_cam_perm', 'true');
+    }} />;
+  }
 
   const renderView = () => {
     switch (currentView) {
-      case "dashboard":
-        return <Dashboard onStartWorkout={() => setCurrentView("workout")} onOpenSettings={() => setCurrentView("settings")} />;
-      case "workout":
-        return <Workout onStop={(reps, durationSeconds) => {
-          setLastWorkout({ reps, durationSeconds });
-          setCurrentView("summary");
-        }} />;
-      case "situps":
-        return <SitUps onStop={(reps, durationSeconds) => {
-          setLastWorkout({ reps, durationSeconds });
-          setCurrentView("summary");
-        }} />;
-      case "summary":
+      case 'dashboard':
+        return <Dashboard onStartWorkout={() => setCurrentView('workout')} onOpenSettings={() => setCurrentView('settings')} />;
+      case 'workout':
+        return <Workout onStop={handleWorkoutStop} />;
+      case 'history':
+        return <History />;
+      case 'profile':
+        return <Profile onOpenSettings={() => setCurrentView('settings')} />;
+      case 'pass':
+        return <PushPass isSubscriber={isSubscriber} />;
+      case 'summary':
         return <Summary 
-          reps={lastWorkout.reps} 
-          durationSeconds={lastWorkout.durationSeconds} 
-          onDone={() => setCurrentView("dashboard")} 
+          reps={lastWorkoutData?.reps || 0} 
+          duration={lastWorkoutData?.duration || 0} 
+          onClose={() => setCurrentView('dashboard')} 
         />;
-      case "history":
-        return <History onOpenSettings={() => setCurrentView("settings")} />;
-      case "profile":
-        return <Profile />;
-      case "settings":
-        return <Settings onBack={() => setCurrentView("dashboard")} />;
+      case 'settings':
+        return <Settings onBack={() => setCurrentView('profile')} />;
       default:
-        return <Dashboard onStartWorkout={() => setCurrentView("workout")} onOpenSettings={() => setCurrentView("settings")} />;
+        return <Dashboard onStartWorkout={() => setCurrentView('workout')} onOpenSettings={() => setCurrentView('settings')} />;
     }
   };
 
   return (
-    <>
-      {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
-      {!cameraPermissionGranted && <PermissionScreen onGranted={() => setCameraPermissionGranted(true)} />}
-      {isOnline ? renderView() : (
-        <div className="fixed inset-0 flex items-center justify-center bg-surface/90 backdrop-blur-sm">
-          <div className="text-center p-8 bg-surface-container rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-primary">Internet Required</h2>
-            <p className="mt-4 text-on-surface-variant">Please connect to the internet to use the app.</p>
-          </div>
-        </div>
+    <div className="relative min-h-screen bg-black overflow-hidden">
+      {renderView()}
+      
+      {/* Universal Navigation (Hidden during workout/summary) */}
+      {!['workout', 'summary', 'onboarding'].includes(currentView) && (
+        <Navigation currentView={currentView} onChangeView={setCurrentView} />
       )}
-      {isOnline && cameraPermissionGranted && currentView !== "workout" && currentView !== "summary" && currentView !== "settings" && (
-        <Navigation 
-          currentView={currentView as any} 
-          onChangeView={setCurrentView as any} 
-        />
-      )}
-    </>
+    </div>
   );
 }

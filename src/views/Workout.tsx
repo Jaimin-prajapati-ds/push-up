@@ -1,346 +1,377 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
-import { usePoseDetection } from '@/src/hooks/usePoseDetection';
-import { initializeAdMob, showBannerAd, hideBannerAd } from '@/src/lib/admob';
-import { useReadyPose } from '@/src/hooks/useReadyPose';
-import { cn } from '@/src/lib/utils';
-import { Square, Pause, Accessibility, Play, Loader2 } from "lucide-react";
-import { Countdown } from '@/src/components/Countdown';
-import { RepAnimation, MilestoneAnimation } from '@/src/components/RepAnimation';
-import { initializePurchases } from '@/src/lib/subscription';
-import { playRepSound, playMilestoneSound } from '@/src/lib/sounds';
-import { vibrateRep, vibrateMilestone } from '@/src/lib/haptics';
-import { requestWakeLock, releaseWakeLock } from '@/src/lib/wakelock';
-import { getAppSettings } from '@/src/lib/userProfile';
-import { speak } from '@/src/lib/speech';
-import type * as poseDetection from '@tensorflow-models/pose-detection';
-import { showRewardVideo } from '@/src/lib/admob';
-import { Capacitor } from '@capacitor/core';
+import { useEffect, useRef, useState } from "react";
+import { usePoseDetection } from "@/src/hooks/usePoseDetection";
+import { ChevronLeft, Zap, Target, Timer as TimerIcon, Activity, ChevronRight } from "lucide-react";
+import { triggerRepHaptic, triggerSuccessHaptic } from "@/src/lib/notifications";
+import { App as CapApp } from '@capacitor/app';
+import { cn } from "@/src/lib/utils";
 
-export function Workout({ onStop }: { onStop: (reps: number, durationSeconds: number) => void }) {
+export function Workout({ onStop }: { onStop: (reps: number, duration: number) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const startTime = useRef<number>(0);
-  const pausedElapsed = useRef<number>(0);
-  const [elapsed, setElapsed] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const [showCountdown, setShowCountdown] = useState(true);
-  const [milestone, setMilestone] = useState<number | null>(null);
-  const [camError, setCamError] = useState<string | null>(null);
-  const lastSpokenRef = useRef<number>(0);
+  const [reps, setReps] = useState(0);
+  const [feedback, setFeedback] = useState("WAITING FOR AI...");
+  const [timer, setTimer] = useState(0);
+  const isPausedRef = useRef(false);
+  const { isReady, processFrame, validatePushupPosition } = usePoseDetection();
   
-  const isPro = localStorage.getItem('pushchamp_is_pro') === 'true';
-  const settings = getAppSettings();
-
-  // Initialize AdMob and subscription status on mount
-  useEffect(() => {
-    initializeAdMob();
-    initializePurchases();
-    if (!isPro) {
-      showBannerAd();
-    }
-    // Offline ad handling
-    const handleOnline = () => {
-      if (!isPro) showBannerAd();
-    };
-    const handleOffline = () => {
-      hideBannerAd();
-    };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      hideBannerAd();
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  const stateRef = useRef({
+    stage: "up",
+    reps: 0,
+    startTime: Date.now(),
+    isCounting: false,
+    smoothedAngle: 180,
+    lastRepTime: 0
+  });
 
   useEffect(() => {
-    if (settings.keepScreenOn) {
-      requestWakeLock();
-    }
-    return () => { 
-      releaseWakeLock(); 
-    };
-  }, []);
-
-  // Timer
-  useEffect(() => {
-    if (isPaused || showCountdown) return;
-    if (startTime.current === 0) {
-      startTime.current = Date.now() - pausedElapsed.current * 1000;
-    }
-    const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTime.current) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isPaused, showCountdown]);
-
-  // Pause handling
-  const handlePause = () => {
-    if (isPaused) {
-      // Resuming — adjust start time
-      startTime.current = Date.now() - pausedElapsed.current * 1000;
-    } else {
-      // Pausing — save current elapsed
-      pausedElapsed.current = elapsed;
-    }
-    setIsPaused(!isPaused);
-  };
-
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    if (h > 0) return `${h}:${m}:${s}`;
-    return `${m}:${s}`;
-  };
-
-  const drawSkeleton = useCallback((poses: poseDetection.Pose[]) => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx || !videoRef.current) return;
-
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    poses.forEach((pose) => {
-      // Draw keypoints
-      pose.keypoints.forEach((kp) => {
-        if (kp.score && kp.score > 0.3) {
-          ctx.beginPath();
-          ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = '#c3f400';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(kp.x, kp.y, 8, 0, 2 * Math.PI);
-          ctx.strokeStyle = 'rgba(195, 244, 0, 0.3)';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      });
-
-      // Draw full skeleton
-      const connect = (kp1Name: string, kp2Name: string) => {
-        const kp1 = pose.keypoints.find(k => k.name === kp1Name);
-        const kp2 = pose.keypoints.find(k => k.name === kp2Name);
-        if (kp1?.score && kp1.score > 0.3 && kp2?.score && kp2.score > 0.3) {
-          ctx.beginPath();
-          ctx.moveTo(kp1.x, kp1.y);
-          ctx.lineTo(kp2.x, kp2.y);
-          ctx.strokeStyle = 'rgba(195, 244, 0, 0.4)';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
-      };
-
-      // Arms
-      connect('left_shoulder', 'left_elbow');
-      connect('left_elbow', 'left_wrist');
-      connect('right_shoulder', 'right_elbow');
-      connect('right_elbow', 'right_wrist');
-      // Torso
-      connect('left_shoulder', 'right_shoulder');
-      connect('left_shoulder', 'left_hip');
-      connect('right_shoulder', 'right_hip');
-      connect('left_hip', 'right_hip');
-      // Legs
-      connect('left_hip', 'left_knee');
-      connect('left_knee', 'left_ankle');
-      connect('right_hip', 'right_knee');
-      connect('right_knee', 'right_ankle');
-    });
-  }, []);
-
-  const handleRep = useCallback(() => {
-    playRepSound();
-    vibrateRep();
-  }, []);
-
-  const handleMilestone = useCallback((count: number) => {
-    playMilestoneSound();
-    vibrateMilestone();
-    setMilestone(count);
-    speak(`${count} reps! Keep going!`);
-  }, []);
-
-  const { isLoaded, reps, isDown, isVisible, formFeedback } = usePoseDetection(
-    videoRef, isPaused || showCountdown, drawSkeleton, handleRep, handleMilestone
-  );
-const { isReady, readyScore } = useReadyPose(videoRef, isPaused || showCountdown, drawSkeleton);
-
-  // Form feedback speech coaching
-  useEffect(() => {
-    if (formFeedback && settings.soundEnabled) {
-      const now = Date.now();
-      if (now - lastSpokenRef.current > 4000) { // Speak at most once every 4 seconds
-        // Simplify message for speech
-        let speechText = formFeedback;
-        if (formFeedback.includes('LIE FLAT')) speechText = "Lie flat, lower your hips.";
-        speak(speechText);
-        lastSpokenRef.current = now;
-      }
-    }
-  }, [formFeedback, settings.soundEnabled]);
-
-  // Camera setup
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-
-    async function setupCamera() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setCamError('Camera not available. Please use HTTPS and grant camera permissions.');
-        return;
-      }
+    const startCamera = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: "user", 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 } 
+          },
           audio: false,
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => { videoRef.current?.play(); };
+          videoRef.current.onloadedmetadata = () => {
+            if (canvasRef.current && videoRef.current) {
+              canvasRef.current.width = videoRef.current.videoWidth;
+              canvasRef.current.height = videoRef.current.videoHeight;
+            }
+          };
         }
-      } catch (err: any) {
-        setCamError(`Camera error: ${err.message || err.toString()}`);
+      } catch (err) {
+        setFeedback("CAMERA ERROR");
       }
-    }
-    setupCamera();
+    };
+    startCamera();
+    
+    const interval = setInterval(() => {
+      if (!isPausedRef.current) {
+        setTimer(Math.floor((Date.now() - stateRef.current.startTime) / 1000));
+      }
+    }, 1000);
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      clearInterval(interval);
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       }
     };
   }, []);
 
-  const getFormText = () => {
-    if (camError) return "CAMERA ERROR";
-    if (isPaused) return "PAUSED";
-    if (showCountdown) return "GET READY...";
-    if (!isLoaded) return "LOADING AI MODEL...";
-    if (!isVisible) return "GET IN FRAME";
-    if (formFeedback) return formFeedback;
-    return isDown ? "PUSH UP!" : "GO DOWN — KEEP CORE TIGHT";
+  const calculateAngle = (a: any, b: any, c: any) => {
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360 - angle;
+    return angle;
+  };
+
+  useEffect(() => {
+    let animationId: number;
+    
+    const runDetection = async () => {
+      if (isPausedRef.current) {
+        animationId = requestAnimationFrame(runDetection);
+        return;
+      }
+
+      if (!videoRef.current || !canvasRef.current || !isReady) {
+        animationId = requestAnimationFrame(runDetection);
+        return;
+      }
+
+      const pose = await processFrame(videoRef.current);
+      const ctx = canvasRef.current.getContext("2d");
+      
+      if (ctx && pose) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        
+        // DRAW SKELETON (Instant Visibility)
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-canvasRef.current.width, 0);
+        drawSkeleton(ctx, pose);
+        ctx.restore();
+
+        // SCIENTIFIC PUSHUP LOGIC
+        const keypoints = pose.keypoints;
+        const findKP = (name: string) => keypoints.find(kp => kp.name === name);
+
+        const lS = findKP('left_shoulder');
+        const lE = findKP('left_elbow');
+        const lW = findKP('left_wrist');
+        const lH = findKP('left_hip');
+        const lK = findKP('left_knee');
+
+        const rS = findKP('right_shoulder');
+        const rE = findKP('right_elbow');
+        const rW = findKP('right_wrist');
+        const rH = findKP('right_hip');
+        const rK = findKP('right_knee');
+
+        // Choose the most visible side
+        const leftScore = (lS?.score || 0) + (lE?.score || 0) + (lW?.score || 0);
+        const rightScore = (rS?.score || 0) + (rE?.score || 0) + (rW?.score || 0);
+        const bestSide = leftScore > rightScore ? 'left' : 'right';
+
+        const S = bestSide === 'left' ? lS : rS;
+        const E = bestSide === 'left' ? lE : rE;
+        const W = bestSide === 'left' ? lW : rW;
+        const H = bestSide === 'left' ? lH : rH;
+        const K = bestSide === 'left' ? lK : rK;
+
+        if (S && E && W && S.score > 0.4 && E.score > 0.4 && W.score > 0.4) {
+          const rawAngle = calculateAngle(S, E, W);
+          
+          // Smoothing (EMA) for professional feel
+          stateRef.current.smoothedAngle = stateRef.current.smoothedAngle * 0.7 + rawAngle * 0.3;
+          const angle = stateRef.current.smoothedAngle;
+
+          // HIP STABILITY CHECK (Research-based: Straight back)
+          let formFeedback = "READY";
+          if (H && K && S && H.score > 0.4 && K.score > 0.4) {
+            const bodyAngle = calculateAngle(S, H, K);
+            if (bodyAngle < 150) formFeedback = "KEEP BACK STRAIGHT";
+            else if (H.y < S.y - 20) formFeedback = "LOWER YOUR HIPS";
+          }
+
+          // REP COUNTING
+          if (angle < 90 && stateRef.current.stage === "up") {
+            stateRef.current.stage = "down";
+            triggerRepHaptic();
+          }
+          if (angle > 160 && stateRef.current.stage === "down") {
+            const now = Date.now();
+            if (now - stateRef.current.lastRepTime > 500) { // Anti-double count
+              stateRef.current.stage = "up";
+              stateRef.current.reps++;
+              stateRef.current.lastRepTime = now;
+              setReps(stateRef.current.reps);
+              triggerSuccessHaptic();
+            }
+          }
+
+          setFeedback(formFeedback === "READY" ? (stateRef.current.stage === "up" ? "GO DOWN" : "PUSH UP!") : formFeedback);
+
+          // DRAW PRO ANGLE OVERLAY
+          ctx.save();
+          // Use original coordinates for HUD (not mirrored)
+          const anchorX = canvasRef.current.width - E.x; 
+          const anchorY = E.y;
+          
+          ctx.translate(anchorX, anchorY);
+          
+          // Glow
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = "#D4F45D";
+          
+          // Arc
+          ctx.beginPath();
+          ctx.arc(0, 0, 45, 0, 2 * Math.PI);
+          ctx.strokeStyle = "rgba(212, 244, 93, 0.4)";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+
+          // Progress Circle
+          ctx.beginPath();
+          const progress = Math.min(1, Math.max(0, (160 - angle) / 70));
+          ctx.arc(0, 0, 45, -Math.PI/2, (-Math.PI/2) + (progress * 2 * Math.PI));
+          ctx.strokeStyle = "#D4F45D";
+          ctx.lineWidth = 8;
+          ctx.stroke();
+
+          // Text
+          ctx.fillStyle = "white";
+          ctx.font = "bold 18px Outfit";
+          ctx.textAlign = "center";
+          ctx.shadowBlur = 0;
+          ctx.fillText(`${Math.round(angle)}°`, 0, 7);
+          ctx.restore();
+        } else {
+          setFeedback("FINDING BODY...");
+        }
+      }
+      
+      animationId = requestAnimationFrame(runDetection);
+    };
+
+    runDetection();
+
+    const handleAppStateChange = CapApp.addListener('appStateChange', ({ isActive }) => {
+      isPausedRef.current = !isActive;
+    });
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      handleAppStateChange.then(l => l.remove());
+    };
+  }, [isReady, processFrame]);
+
+  const drawSkeleton = (ctx: CanvasRenderingContext2D, pose: any) => {
+    const connections = [
+      ['left_shoulder', 'right_shoulder'],
+      ['left_shoulder', 'left_hip'],
+      ['right_shoulder', 'right_hip'],
+      ['left_hip', 'right_hip'],
+      ['left_shoulder', 'left_elbow'],
+      ['left_elbow', 'left_wrist'],
+      ['right_shoulder', 'right_elbow'],
+      ['right_elbow', 'right_wrist'],
+      ['left_hip', 'left_knee'],
+      ['left_knee', 'left_ankle'],
+      ['right_hip', 'right_knee'],
+      ['right_knee', 'right_ankle']
+    ];
+
+    connections.forEach(([s, e]) => {
+      const kp1 = pose.keypoints.find((k: any) => k.name === s);
+      const kp2 = pose.keypoints.find((k: any) => k.name === e);
+      
+      if (kp1 && kp2 && (kp1.score ?? 0) > 0.3 && (kp2.score ?? 0) > 0.3) {
+        // FULL VISIBILITY SKELETON
+        ctx.beginPath();
+        ctx.lineWidth = 6;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#D4F45D"; // Pure solid color
+        
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#D4F45D";
+
+        ctx.moveTo(kp1.x, kp1.y);
+        ctx.lineTo(kp2.x, kp2.y);
+        ctx.stroke();
+      }
+    });
+
+    // Joints
+    pose.keypoints.forEach((kp: any) => {
+      if ((kp.score ?? 0) > 0.3) { 
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        ctx.strokeStyle = "#D4F45D";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    });
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden relative flex flex-col items-center">
-      {/* Countdown overlay */}
-      {showCountdown && (
-        <Countdown seconds={settings.countdownSeconds} onComplete={() => setShowCountdown(false)} />
-      )}
-
-      {/* Milestone overlay */}
-      <MilestoneAnimation milestone={milestone} onDone={() => setMilestone(null)} />
-
-      {camError && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/90 p-8 text-center text-red-500 font-body-lg">
-          <div className="flex flex-col items-center gap-4">
-            <Accessibility className="w-12 h-12 text-red-500" />
-            <p>{camError}</p>
-            <p className="text-on-surface-variant text-sm">Please allow camera permissions and ensure you're using HTTPS.</p>
-            <button 
-              onClick={() => { setCamError(null); window.location.reload(); }}
-              className="px-6 py-2 bg-surface-container-high text-white rounded-lg uppercase tracking-widest text-sm hover:bg-surface-variant transition-colors"
-            >Retry</button>
-          </div>
-        </div>
-      )}
-{/* Ready overlay */}
-{!isReady && !showCountdown && (
-  <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-20">
-    <div className="text-center text-white font-display-lg">
-      <p>Stand straight, feet hip‑width apart.</p>
-      <p className="mt-2 text-sm opacity-80">When the green skeleton steadies, you’re ready.</p>
-    </div>
-  </div>
-)}
-
-      {/* Camera feed */}
-      <video ref={videoRef} className="absolute inset-0 z-0 w-full h-full object-cover" playsInline muted />
-      <canvas ref={canvasRef} className="absolute inset-0 z-[1] w-full h-full object-cover pointer-events-none" />
-      
-      {/* Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/20 to-background/95 mix-blend-overlay z-0 pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-background/40 to-background shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] z-0 pointer-events-none" />
-
-      {/* Top bar */}
-      <nav className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-14 bg-surface/60 backdrop-blur-md border-b border-surface-container-highest">
-        <div className="flex flex-col">
-          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Activity</span>
-          <span className="font-headline-lg text-[18px] text-tertiary uppercase leading-none">Pushups</span>
-        </div>
-        <span className="font-display-lg text-headline-lg-mobile italic uppercase text-primary tracking-wider leading-none">PUSHCHAMP</span>
-        <div className="flex flex-col items-end">
-          {camError ? (
-            <span className="font-label-caps text-label-caps text-red-500 uppercase">Failed</span>
-          ) : isLoaded ? (
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-primary-fixed rounded-full animate-pulse" />
-              <span className="font-label-caps text-label-caps text-primary-fixed uppercase">Live</span>
-            </div>
-          ) : (
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Loading...</span>
-          )}
-          <span className="font-headline-lg text-[18px] text-tertiary tabular-nums tracking-widest leading-none mt-0.5">{formatTime(elapsed)}</span>
-        </div>
-      </nav>
-
-      <main className="relative z-10 w-full h-full flex flex-col justify-between pt-20 pb-6 px-5 max-w-[1280px] mx-auto">
-        {/* Rep counter - center */}
-        <div className="flex flex-col items-center justify-center flex-1 w-full">
-          <div className="relative flex flex-col items-center justify-center mt-[-8vh]">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-primary-fixed blur-[80px] opacity-20 rounded-full animate-pulse" />
-            <RepAnimation reps={reps} />
-            <div className="flex items-baseline gap-2 relative z-10">
-              <span className={cn(
-                "font-stats-xl text-stats-xl text-primary-fixed drop-shadow-[0_0_12px_rgba(195,244,0,0.6)] transform scale-[2.5] origin-bottom tracking-tighter leading-none transition-all duration-150",
-                isDown ? "scale-[2.3] opacity-80" : ""
-              )}>
-                {reps}
+    <div className="fixed inset-0 bg-black flex flex-col overflow-hidden font-sans">
+      {/* Premium HUD Overlay */}
+      <div className="absolute inset-0 pointer-events-none z-50">
+        <div className="p-8 flex items-start justify-between w-full pointer-events-auto">
+          <button onClick={() => onStop(reps, timer)} className="w-14 h-14 bg-black/40 backdrop-blur-3xl rounded-2xl flex items-center justify-center border border-white/10 active:scale-90 transition-all shadow-2xl">
+            <ChevronLeft className="text-white" size={28} />
+          </button>
+          
+          <div className="flex flex-col items-end gap-2">
+            <div className="bg-black/40 backdrop-blur-3xl px-6 py-3 rounded-2xl border border-white/10 flex items-center gap-3 shadow-2xl">
+              <div className="w-2 h-2 rounded-full bg-[#D4F45D] animate-pulse" />
+              <span className="font-heading text-2xl italic text-white tracking-tighter">
+                {Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}
               </span>
             </div>
-            <div className="mt-16 bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-primary-fixed/30 shadow-[0_0_15px_rgba(195,244,0,0.1)]">
-              <span className="font-label-caps text-label-caps text-primary-fixed uppercase tracking-widest">Reps Completed</span>
+            <div className="bg-[#D4F45D]/10 backdrop-blur-3xl px-4 py-1.5 rounded-full border border-[#D4F45D]/20">
+              <span className="text-[10px] font-black text-[#D4F45D] uppercase tracking-widest">LIVE SESSION</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom: Form guide + buttons */}
-        <footer className="flex flex-col items-center gap-6 w-full max-w-[480px] mx-auto">
-          <div className="w-full relative flex flex-col items-center">
-            <div className="absolute -top-3 px-3 bg-surface-container z-10 border border-surface-container-highest rounded-full">
-              <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Form Guide</span>
-            </div>
-            <div className="w-full py-6 border-2 border-dashed border-primary-fixed/40 rounded-xl relative flex flex-col items-center justify-center bg-surface-container/30 backdrop-blur-sm overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-primary-fixed/50 shadow-[0_0_8px_rgba(195,244,0,0.8)] opacity-50 animate-pulse" />
-              <Accessibility className="text-primary-fixed/80 w-10 h-10 mb-2" strokeWidth={1} />
-              <span className={cn(
-                "font-label-caps text-label-caps uppercase bg-background/80 px-3 py-1 rounded border shadow-lg",
-                formFeedback ? "text-orange-400 border-orange-400/30" : "text-tertiary border-surface-variant"
-              )}>{getFormText()}</span>
-            </div>
+        {/* Form Feedback Indicator */}
+        <div className="absolute top-32 left-1/2 -translate-x-1/2 w-full flex flex-col items-center gap-4 px-8">
+          <div className={cn(
+            "px-8 py-3 rounded-2xl border backdrop-blur-xl transition-all duration-500 flex items-center gap-3",
+            feedback.includes("LOWER") || feedback.includes("STRAIGHT") 
+              ? "bg-red-500/20 border-red-500/30 scale-110" 
+              : "bg-white/5 border-white/10"
+          )}>
+            <Zap size={16} className={feedback.includes("LOWER") ? "text-red-500" : "text-[#D4F45D]"} />
+            <span className={cn(
+              "font-black italic text-sm uppercase tracking-[0.2em]",
+              feedback.includes("LOWER") || feedback.includes("STRAIGHT") ? "text-red-500" : "text-white"
+            )}>
+              {feedback}
+            </span>
           </div>
+        </div>
+      </div>
 
-          <div className="w-full flex justify-between gap-4">
-            <button
-                disabled={!isReady}
-                onClick={() => {
-                  onStop(reps, elapsed);
-                }}
-                className="flex-1 bg-transparent text-tertiary font-display-lg text-body-lg uppercase py-4 rounded-lg flex justify-center items-center gap-2 border border-surface-variant hover:bg-surface-container transition-colors shadow-lg leading-none active:scale-95"
-            >
-                <Square className="w-5 h-5 fill-current" />
-                Stop
-            </button>
-            <button onClick={handlePause} className="flex-1 bg-primary-fixed text-on-primary-fixed font-display-lg text-body-lg uppercase py-4 rounded-lg flex justify-center items-center gap-2 hover:bg-primary-fixed-dim transition-colors shadow-[0_4px_20px_rgba(195,244,0,0.3)] leading-none active:scale-95">
-              {isPaused ? <Play className="w-5 h-5 fill-current" /> : <Pause className="w-5 h-5 fill-current" />}
-              {isPaused ? 'Resume' : 'Pause'}
-            </button>
+      {/* Camera Core */}
+      <div className="relative flex-1 bg-black overflow-hidden">
+        <video 
+          ref={videoRef} 
+          className="absolute inset-0 w-full h-full object-cover opacity-80 scale-x-[-1]" 
+          autoPlay 
+          playsInline 
+          muted 
+        />
+        <canvas 
+          ref={canvasRef} 
+          className="absolute inset-0 w-full h-full object-cover z-20 pointer-events-none" 
+        />
+        
+        {/* Dynamic Scan Effect */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30 z-10">
+          <div className="w-full h-[2px] bg-[#D4F45D] absolute top-0 animate-[scan_4s_linear_infinite]" />
+          <div className="w-full h-full bg-[linear-gradient(rgba(212,244,93,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(212,244,93,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        </div>
+
+        {/* Frame Guide */}
+        <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center p-8">
+          <div className="w-full h-full border-2 border-white/5 rounded-[4rem] relative overflow-hidden">
+            {/* Corner Accents */}
+            <div className="absolute top-10 left-10 w-12 h-12 border-t-4 border-l-4 border-[#D4F45D] rounded-tl-3xl shadow-[0_0_20px_rgba(212,244,93,0.5)]" />
+            <div className="absolute top-10 right-10 w-12 h-12 border-t-4 border-r-4 border-[#D4F45D] rounded-tr-3xl shadow-[0_0_20px_rgba(212,244,93,0.5)]" />
+            <div className="absolute bottom-10 left-10 w-12 h-12 border-b-4 border-l-4 border-[#D4F45D] rounded-bl-3xl shadow-[0_0_20px_rgba(212,244,93,0.5)]" />
+            <div className="absolute bottom-10 right-10 w-12 h-12 border-b-4 border-r-4 border-[#D4F45D] rounded-br-3xl shadow-[0_0_20px_rgba(212,244,93,0.5)]" />
           </div>
-        </footer>
-      </main>
+        </div>
+      </div>
+
+      {/* Rep Counter Floor */}
+      <div className="h-56 bg-[#080808] border-t border-white/10 px-10 flex items-center justify-between z-50 relative">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-[#D4F45D]/5 to-transparent pointer-events-none" />
+        
+        <div className="flex items-center gap-8 relative">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-[#D4F45D] blur-3xl opacity-20 group-hover:opacity-40 transition-opacity" />
+            <div className="w-20 h-20 bg-[#D4F45D] rounded-[2rem] flex items-center justify-center relative shadow-[0_0_40px_rgba(212,244,93,0.4)]">
+              <Activity className="text-black" size={36} />
+            </div>
+          </div>
+          <div className="space-y-0">
+            <p className="text-[#D4F45D] font-black text-[10px] tracking-[0.5em] uppercase opacity-60">Total Reps</p>
+            <div className="flex items-baseline gap-3">
+              <span className="text-8xl font-heading italic text-white leading-none tracking-tighter drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                {reps}
+              </span>
+              <span className="text-2xl font-heading italic text-[#D4F45D]">REPS</span>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          onClick={() => onStop(reps, timer)}
+          className="h-20 px-12 bg-white text-black rounded-[2.5rem] font-black italic uppercase tracking-[0.2em] shadow-[0_10px_40px_rgba(255,255,255,0.2)] active:scale-95 transition-all flex items-center gap-3 hover:bg-[#D4F45D]"
+        >
+          FINISH <ChevronRight size={24} />
+        </button>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes scan {
+          0% { top: 0; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+      `}} />
     </div>
   );
 }

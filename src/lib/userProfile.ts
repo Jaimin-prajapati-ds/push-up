@@ -75,14 +75,6 @@ export function saveAppSettings(settings: Partial<AppSettings>) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
 }
 
-/** Calculate calories burned from push-ups using MET formula */
-export function calculateCalories(durationSeconds: number, weightKg: number): number {
-  // MET for push-ups ≈ 8.0
-  const MET = 8.0;
-  const hours = durationSeconds / 3600;
-  return Math.round(MET * weightKg * hours);
-}
-
 /** Calculate volume (total weight moved) */
 export function calculateVolume(reps: number, weightKg: number): number {
   // Push-up lifts ~64% of body weight

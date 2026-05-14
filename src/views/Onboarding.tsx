@@ -1,109 +1,102 @@
-import { useState } from 'react';
-import { completeOnboarding, saveUserProfile } from '@/src/lib/userProfile';
-import { ChevronRight, Camera, Smartphone, Dumbbell, Zap } from 'lucide-react';
+import { useState } from "react";
+import { Play, ChevronRight, Zap, Shield, Trophy, Flame } from "lucide-react";
+import { cn } from "@/src/lib/utils";
 
-interface OnboardingProps {
-  onComplete: () => void;
+interface Step {
+  title: string;
+  subtitle: string;
+  description: string;
+  icon: any;
 }
 
-const steps = [
+const steps: Step[] = [
   {
-    icon: Zap,
-    title: 'AI-POWERED COUNTING',
-    description: 'PushChamp uses MoveNet AI to detect your body and count push-ups automatically in real-time.',
-    tip: 'No manual counting — just push.',
+    title: "AI-POWERED",
+    subtitle: "COUNTING",
+    description: "PushChamp uses MoveNet AI to detect your body and count push-ups automatically in real-time.",
+    icon: <Zap className="w-12 h-12 text-[#D4F45D]" />
   },
   {
-    icon: Smartphone,
-    title: 'PHONE PLACEMENT',
-    description: 'Place your phone on the floor, leaning against a water bottle or wall. The front camera should face you from the side.',
-    tip: 'Side angle = best accuracy.',
+    title: "REAL-TIME",
+    subtitle: "FORM CHECK",
+    description: "Get instant feedback on your posture. No more fake reps—keep your back straight and hips aligned.",
+    icon: <Shield className="w-12 h-12 text-[#D4F45D]" />
   },
   {
-    icon: Camera,
-    title: 'CAMERA ACCESS',
-    description: 'PushChamp needs your front camera to detect your body. All processing happens ON your device — no data leaves your phone.',
-    tip: 'Your privacy is 100% protected.',
-  },
-  {
-    icon: Dumbbell,
-    title: 'SET YOUR WEIGHT',
-    description: 'Enter your weight for accurate calorie and volume calculations.',
-    tip: 'You can change this anytime in Profile.',
-    hasWeightInput: true,
-  },
+    title: "PUSH PASS",
+    subtitle: "EVOLUTION",
+    description: "Unlock 50 levels of rewards, earn XP, and compete in Season 1 to become the ultimate PushChamp.",
+    icon: <Trophy className="w-12 h-12 text-[#D4F45D]" />
+  }
 ];
 
-export function Onboarding({ onComplete }: OnboardingProps) {
-  const [step, setStep] = useState(0);
-  const [weight, setWeight] = useState(70);
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
-  const Icon = current.icon;
+export function Onboarding({ onComplete }: { onComplete: () => void }) {
+  const [currentStep, setCurrentStep] = useState(0);
 
   const handleNext = () => {
-    if (isLast) {
-      saveUserProfile({ weightKg: weight });
-      completeOnboarding();
-      onComplete();
-    } else {
-      setStep(s => s + 1);
-    }
+    if (currentStep < steps.length - 1) setCurrentStep(currentStep + 1);
+    else onComplete();
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background flex flex-col items-center justify-between p-6">
-      {/* Progress dots */}
-      <div className="flex items-center gap-2 pt-8">
-        {steps.map((_, i) => (
-          <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === step ? 'w-8 bg-primary-fixed' : i < step ? 'w-4 bg-primary-fixed/50' : 'w-4 bg-surface-container-highest'}`} />
-        ))}
+    <div className="flex flex-col min-h-screen bg-[#0A0A0A] text-white p-8 justify-between">
+      {/* Background Glow */}
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#D4F45D]/10 blur-[120px] rounded-full pointer-events-none" />
+      
+      {/* Header Logo */}
+      <div className="flex justify-center pt-8">
+        <div className="w-12 h-12 bg-[#D4F45D] flex items-center justify-center rounded-sm rotate-[-10deg] shadow-[0_0_30px_rgba(212,244,93,0.4)]">
+          <span className="text-black font-black italic text-2xl">P</span>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col items-center text-center gap-6 max-w-sm">
-        <div className="w-20 h-20 rounded-2xl bg-surface-container border border-primary-fixed/30 flex items-center justify-center shadow-[0_0_30px_rgba(195,244,0,0.15)]">
-          <Icon className="w-10 h-10 text-primary-fixed" />
-        </div>
+      {/* Content Area */}
+      <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex justify-center">{steps[currentStep].icon}</div>
         
-        <h2 className="font-display-lg text-display-lg text-primary uppercase leading-tight">{current.title}</h2>
-        <p className="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">{current.description}</p>
-        
-        <div className="bg-surface-container border border-primary-fixed/20 rounded-xl px-4 py-2">
-          <span className="font-label-caps text-label-caps text-primary-fixed uppercase tracking-widest">💡 {current.tip}</span>
-        </div>
-
-        {current.hasWeightInput && (
-          <div className="flex flex-col items-center gap-3 mt-2">
-            <div className="flex items-center gap-4">
-              <button onClick={() => setWeight(w => Math.max(30, w - 1))} className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center text-xl font-bold active:scale-90 transition-transform">−</button>
-              <div className="flex items-baseline gap-1">
-                <span className="font-stats-xl text-stats-xl text-primary-container">{weight}</span>
-                <span className="font-body-md text-on-surface-variant">kg</span>
-              </div>
-              <button onClick={() => setWeight(w => Math.min(200, w + 1))} className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center text-xl font-bold active:scale-90 transition-transform">+</button>
-            </div>
+        <div className="space-y-4 text-center">
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold tracking-[0.3em] text-[#D4F45D] leading-none opacity-80 uppercase">
+              {steps[currentStep].title}
+            </h2>
+            <h1 className="text-5xl font-heading italic leading-none">
+              {steps[currentStep].subtitle}
+            </h1>
           </div>
-        )}
+          <p className="text-gray-400 text-sm leading-relaxed max-w-[280px] mx-auto font-medium">
+            {steps[currentStep].description}
+          </p>
+        </div>
+
+        {/* Step Indicators */}
+        <div className="flex justify-center gap-2">
+          {steps.map((_, i) => (
+            <div 
+              key={i} 
+              className={cn(
+                "h-1 rounded-full transition-all duration-300",
+                i === currentStep ? "w-8 bg-[#D4F45D]" : "w-2 bg-white/10"
+              )} 
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Bottom actions */}
-      <div className="w-full max-w-sm flex flex-col gap-3 pb-4">
-        <button
+      {/* Footer Actions */}
+      <div className="space-y-4 pb-8">
+        <button 
           onClick={handleNext}
-          className="w-full bg-primary-container text-black font-display-lg text-headline-lg uppercase py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(195,244,0,0.2)] active:scale-95 transition-transform leading-none"
+          className="w-full py-5 bg-[#D4F45D] text-black font-black italic uppercase tracking-widest rounded-[2rem] flex items-center justify-center gap-2 shadow-[0_4px_30px_rgba(212,244,93,0.3)] active:scale-95 transition-transform"
         >
-          {isLast ? 'START PUSHING' : 'NEXT'}
-          <ChevronRight className="w-6 h-6" />
+          {currentStep === steps.length - 1 ? "GET STARTED" : "NEXT"} <ChevronRight size={20} />
         </button>
-        {!isLast && (
-          <button
-            onClick={() => { completeOnboarding(); onComplete(); }}
-            className="w-full text-on-surface-variant font-label-caps text-label-caps uppercase tracking-widest py-3 hover:text-primary transition-colors"
-          >
-            Skip Tutorial
-          </button>
-        )}
+        
+        <button 
+          onClick={onComplete}
+          className="w-full py-4 text-gray-500 font-bold text-xs uppercase tracking-widest active:opacity-60 transition-opacity"
+        >
+          SKIP TUTORIAL
+        </button>
       </div>
     </div>
   );

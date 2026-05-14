@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getAppSettings, saveAppSettings, type AppSettings } from '@/src/lib/userProfile';
-import { ChevronLeft, Volume2, VolumeX, Smartphone, Zap, Eye, Timer, Trash2, Instagram, ExternalLink, Star } from 'lucide-react';
+import { ChevronLeft, Volume2, VolumeX, Smartphone, Zap, Eye, Timer, Trash2, ExternalLink, Star } from 'lucide-react';
+import { Purchases } from '@revenuecat/purchases-capacitor';
 
 export function Settings({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<AppSettings>(getAppSettings());
@@ -49,18 +50,47 @@ export function Settings({ onBack }: { onBack: () => void }) {
               <button 
                 onClick={async () => {
                   try {
-                    // Logic to purchase via RevenueCat
-                    // const { customerInfo } = await Purchases.purchasePackage(myMonthlyPackage);
-                    alert("Purchasing Pro Version ($1.99) via Google Play...");
-                    localStorage.setItem('pushchamp_is_pro', 'true');
-                    window.location.reload();
-                  } catch (e) {
-                    console.log("Purchase cancelled", e);
+                    const offerings = await Purchases.getOfferings();
+                    const pkg = offerings.current?.availablePackages[0];
+                    if (!pkg) {
+                      alert('No purchase options available. Try again later.');
+                      return;
+                    }
+                    const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
+                    const isPro = customerInfo.entitlements.active['pro'] !== undefined;
+                    if (isPro) {
+                      alert('Welcome to PushChamp Pro!');
+                      window.location.reload();
+                    }
+                  } catch (e: any) {
+                    if (e.code !== '1') { // 1 = user cancelled
+                      alert('Purchase failed. Please try again.');
+                    }
                   }
                 }}
                 className="w-full py-3 bg-primary-fixed text-black rounded-lg font-headline-lg text-[16px] uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-fixed-dim transition-colors"
               >
                 Upgrade to Pro • $1.99/mo
+              </button>
+              
+              <button 
+                onClick={async () => {
+                  try {
+                    const { restorePurchases } = await import('../lib/subscription');
+                    const isPro = await restorePurchases();
+                    if (isPro) {
+                      alert('Purchases restored successfully!');
+                      window.location.reload();
+                    } else {
+                      alert('No active subscriptions found.');
+                    }
+                  } catch (e) {
+                    alert('Restore failed. Please try again.');
+                  }
+                }}
+                className="w-full py-2 text-on-surface-variant font-label-caps text-[12px] uppercase tracking-widest hover:text-primary transition-colors"
+              >
+                Restore Purchases
               </button>
             </div>
           </div>
@@ -71,6 +101,7 @@ export function Settings({ onBack }: { onBack: () => void }) {
           <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">Feedback</h2>
           <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden">
             <ToggleRow icon={settings.soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />} label="Sound Effects" value={settings.soundEnabled} onChange={v => updateSetting('soundEnabled', v)} />
+            <ToggleRow icon={<Zap className="w-5 h-5 text-primary-fixed" />} label="AI Voice Coaching" value={settings.voiceEnabled || false} onChange={v => updateSetting('voiceEnabled', v)} border />
             <ToggleRow icon={<Smartphone className="w-5 h-5" />} label="Vibration" value={settings.vibrationEnabled} onChange={v => updateSetting('vibrationEnabled', v)} border />
             <ToggleRow icon={<Eye className="w-5 h-5" />} label="Keep Screen On" value={settings.keepScreenOn} onChange={v => updateSetting('keepScreenOn', v)} border />
           </div>
@@ -179,22 +210,23 @@ export function Settings({ onBack }: { onBack: () => void }) {
         <section className="flex flex-col gap-1">
           <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">About</h2>
           <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden">
-            <a href="https://instagram.com/jai._.min2" target="_blank" rel="noopener noreferrer" className="p-4 flex items-center justify-between hover:bg-surface-container-high transition-colors">
-              <div className="flex items-center gap-3">
-                <Instagram className="w-5 h-5 text-pink-500" />
-                <div className="flex flex-col">
-                  <span className="font-body-md text-on-surface">Developer</span>
-                  <span className="font-label-caps text-label-caps text-primary-fixed">@jai._.min2</span>
-                </div>
+            <a 
+              href="https://jaimin-prajapati-ds.github.io/push-up/privacy.html" 
+              target="_blank" 
+              className="p-4 flex items-center justify-between hover:bg-surface-variant transition-colors"
+            >
+              <div className="flex items-center gap-3 text-on-surface">
+                <Eye className="w-5 h-5" />
+                <span className="font-body-md">Privacy Policy</span>
               </div>
               <ExternalLink className="w-4 h-4 text-on-surface-variant" />
             </a>
             <div className="p-4 flex items-center justify-between border-t border-surface-container-highest">
-              <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-on-surface-variant" />
-                <span className="font-body-md text-on-surface">Version</span>
+              <div className="flex items-center gap-3 text-on-surface">
+                <Smartphone className="w-5 h-5" />
+                <span className="font-body-md">Version</span>
               </div>
-              <span className="font-label-caps text-label-caps text-on-surface-variant">1.0.0</span>
+              <span className="font-label-caps text-label-caps text-on-surface-variant">2.1.0</span>
             </div>
           </div>
         </section>

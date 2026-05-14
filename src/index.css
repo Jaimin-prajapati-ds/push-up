@@ -1,97 +1,73 @@
 @import "tailwindcss";
 
-@theme {
-  --color-secondary-container: #4a4949;
-  --color-on-tertiary-fixed: #1b1b1c;
-  --color-error-container: #93000a;
-  --color-on-tertiary-fixed-variant: #474746;
-  --color-tertiary-container: #e5e2e1;
-  --color-inverse-primary: #506600;
-  --color-primary-fixed: #c3f400;
-  --color-surface-container-lowest: #0c0e14;
-  --color-secondary-fixed-dim: #c8c6c5;
-  --color-surface-container-high: #282a31;
-  --color-outline-variant: #444933;
-  --color-on-surface-variant: #c4c9ac;
-  --color-tertiary: #ffffff;
-  --color-surface-tint: #abd600;
-  --color-surface-container: #1e1f26;
-  --color-on-primary-fixed-variant: #3c4d00;
-  --color-tertiary-fixed-dim: #c8c6c5;
-  --color-primary-container: #c3f400;
-  --color-secondary-fixed: #e5e2e1;
-  --color-surface: #12131a;
-  --color-on-error-container: #ffdad6;
-  --color-on-primary-container: #556d00;
-  --color-error: #ffb4ab;
-  --color-outline: #8e9379;
-  --color-primary-fixed-dim: #abd600;
-  --color-surface-container-low: #1a1b22;
-  --color-on-primary: #283500;
-  --color-surface-container-highest: #33343c;
-  --color-on-tertiary-container: #656464;
-  --color-secondary: #c8c6c5;
-  --color-on-secondary-container: #bab8b7;
-  --color-on-primary-fixed: #161e00;
-  --color-surface-variant: #33343c;
-  --color-inverse-on-surface: #2f3037;
-  --color-on-secondary-fixed-variant: #474646;
-  --color-on-secondary: #313030;
-  --color-tertiary-fixed: #e5e2e1;
-  --color-background: #12131a;
-  --color-primary: #ffffff;
-  --color-on-secondary-fixed: #1c1b1b;
-  --color-on-tertiary: #303030;
-  --color-on-error: #690005;
-  --color-on-surface: #e2e1eb;
-  --color-inverse-surface: #e2e1eb;
-  --color-surface-bright: #383940;
-  --color-surface-dim: #12131a;
-  --color-on-background: #e2e1eb;
+:root {
+  --color-primary: #D4F45D;
+  --color-surface: #0A0A0A;
+  --color-surface-container: #111111;
+  --font-heading: "Outfit", sans-serif;
+  --font-sans: "Inter", sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: rgba(255, 255, 255, 0.05);
+    -webkit-tap-highlight-color: transparent;
+  }
   
-  --spacing-stack-gap-lg: 32px;
-  --spacing-stack-gap-sm: 8px;
-  --spacing-base: 8px;
-  --spacing-gutter-x: 16px;
-  --spacing-container-margin: 20px;
-  --spacing-stack-gap-md: 16px;
+  body {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    
+    background-image: 
+      radial-gradient(circle at 50% -20%, rgba(212, 244, 93, 0.08) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+}
 
-  --font-display-lg: "Anton", sans-serif;
-  --font-body-md: "Lexend", sans-serif;
-  --font-body-lg: "Lexend", sans-serif;
-  --font-headline-lg: "Anton", sans-serif;
-  --font-headline-lg-mobile: "Anton", sans-serif;
-  --font-stats-xl: "Anton", sans-serif;
-  --font-label-caps: "Space Grotesk", sans-serif;
+.font-heading {
+  font-family: var(--font-heading);
+}
 
-  --text-display-lg: 48px;
-  --text-display-lg--line-height: 48px;
-  --text-display-lg--letter-spacing: 0.02em;
-  --text-display-lg--font-weight: 400;
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
 
-  --text-body-md: 16px;
-  --text-body-md--line-height: 24px;
-  --text-body-md--font-weight: 400;
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
-  --text-body-lg: 18px;
-  --text-body-lg--line-height: 28px;
-  --text-body-lg--font-weight: 400;
+/* Premium Animations */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  --text-headline-lg: 32px;
-  --text-headline-lg--line-height: 36px;
-  --text-headline-lg--font-weight: 400;
+.animate-in {
+  animation: fade-in-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
 
-  --text-headline-lg-mobile: 28px;
-  --text-headline-lg-mobile--line-height: 32px;
-  --text-headline-lg-mobile--font-weight: 400;
+.glass-morphism {
+  background: rgba(15, 15, 15, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
 
-  --text-stats-xl: 64px;
-  --text-stats-xl--line-height: 64px;
-  --text-stats-xl--letter-spacing: -0.02em;
-  --text-stats-xl--font-weight: 400;
+.neon-glow {
+  box-shadow: 0 0 30px rgba(212, 244, 93, 0.2);
+}
 
-  --text-label-caps: 12px;
-  --text-label-caps--line-height: 16px;
-  --text-label-caps--letter-spacing: 0.1em;
-  --text-label-caps--font-weight: 700;
+/* Fix for the glitchy lines - removed aggressive scanline effects */
+.bg-mesh {
+  position: fixed;
+  inset: 0;
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+  z-index: -1;
+  pointer-events: none;
 }

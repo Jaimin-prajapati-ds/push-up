@@ -1,7 +1,7 @@
 {
   "name": "pushchamp",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -13,9 +13,11 @@
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/cli": "^8.3.4",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/local-notifications": "^8.1.0",
     "@capacitor/screen-orientation": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",

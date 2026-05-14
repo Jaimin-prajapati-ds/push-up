@@ -1,10 +1,14 @@
-import { AdMob, BannerAdOptions, BannerAdSize, BannerAdPosition, BannerAdPluginEvents, AdMobBannerSize, RewardAdOptions, AdMobRewardItem, RewardAdPluginEvents, AdOptions } from '@capacitor-community/admob';
+import { AdMob, BannerAdSize, BannerAdPosition, BannerAdOptions, RewardAdPluginEvents, AdOptions } from '@capacitor-community/admob';
 import { Capacitor } from '@capacitor/core';
 
+let _isUserPro = false;
+export function setAdProStatus(isPro: boolean) { _isUserPro = isPro; }
+
 // Test IDs fallback
-const bannerAdId = import.meta.env.VITE_ADMOB_BANNER_ID || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/2934735716' : 'ca-app-pub-3940256099942544/6300978111');
-const rewardAdId = import.meta.env.VITE_ADMOB_REWARD_ID || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/1712485313' : 'ca-app-pub-3940256099942544/5224354917');
-const interstitialAdId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ID || (Capacitor.getPlatform() === 'ios' ? 'ca-app-pub-3940256099942544/4411468910' : 'ca-app-pub-3940256099942544/1033173712');
+const bannerAdId = import.meta.env.VITE_ADMOB_BANNER_ID || 'ca-app-pub-3940256099942544/6300978111';
+const interstitialAdId = import.meta.env.VITE_ADMOB_INTERSTITIAL_ID || 'ca-app-pub-3940256099942544/1033173712';
+const rewardedAdId = import.meta.env.VITE_ADMOB_REWARDED_ID || 'ca-app-pub-3940256099942544/5224354917';
+const appOpenAdId = import.meta.env.VITE_ADMOB_APP_OPEN_ID || 'ca-app-pub-3940256099942544/3419835294';
 
 export async function initializeAdMob() {
   if (Capacitor.isNativePlatform()) {
@@ -22,8 +26,7 @@ export async function initializeAdMob() {
 
 export async function showBannerAd() {
   if (!Capacitor.isNativePlatform()) return;
-  const isPro = localStorage.getItem('pushchamp_is_pro') === 'true';
-  if (isPro) return; // Do not show ads to Pro users
+  if (_isUserPro) return; // Do not show ads to Pro users
   
   try {
     const options: BannerAdOptions = {
@@ -31,7 +34,7 @@ export async function showBannerAd() {
       adSize: BannerAdSize.BANNER,
       position: BannerAdPosition.BOTTOM_CENTER,
       margin: 80, // Push up by 80px to avoid bottom navigation blocking UI
-      isTesting: true,
+      isTesting: import.meta.env.MODE !== 'production',
       npa: true
     };
     await AdMob.showBanner(options);
@@ -49,55 +52,50 @@ export async function hideBannerAd() {
   }
 }
 
+export async function showInterstitial() {
+  if (!Capacitor.isNativePlatform() || _isUserPro) return;
+  try {
+    await AdMob.prepareInterstitial({
+      adId: interstitialAdId,
+      isTesting: import.meta.env.MODE !== 'production'
+    });
+    await AdMob.showInterstitial();
+  } catch (e) {
+    console.error('Interstitial failed', e);
+  }
+}
+
 export async function showRewardVideo(): Promise<boolean> {
-  if (!Capacitor.isNativePlatform()) return true; // Mock success for web
-  const isPro = localStorage.getItem('pushchamp_is_pro') === 'true';
-  if (isPro) return true;
-  
+  if (!Capacitor.isNativePlatform()) return true;
+  if (_isUserPro) return true;
+
   return new Promise(async (resolve) => {
     try {
-      let rewarded = false;
-
-      const rewardedListener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, () => {
-        rewarded = true;
+      await AdMob.prepareRewardVideoAd({
+        adId: rewardedAdId,
+        isTesting: import.meta.env.MODE !== 'production'
+      });
+      
+      const listener = await AdMob.addListener(RewardAdPluginEvents.Rewarded, (reward) => {
+        console.log('User earned reward', reward);
+        resolve(true);
       });
 
-      const dismissedListener = await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => {
-        rewardedListener.remove();
-        dismissedListener.remove();
-        resolve(rewarded);
-      });
-
-      const options: RewardAdOptions = {
-        adId: rewardAdId,
-        isTesting: import.meta.env.MODE !== 'production',
-        npa: true
-      };
-
-      await AdMob.prepareRewardVideoAd(options);
       await AdMob.showRewardVideoAd();
     } catch (e) {
-      console.error('Failed to show reward video', e);
+      console.error('Reward video failed', e);
       resolve(false);
     }
   });
 }
-
-export async function showInterstitialAd() {
-  if (!Capacitor.isNativePlatform()) return;
-  const isPro = localStorage.getItem('pushchamp_is_pro') === 'true';
-  if (isPro) return; // Do not show ads to Pro users
-  
+export async function showAppOpenAd() {
+  if (!Capacitor.isNativePlatform() || _isUserPro) return;
   try {
-    const options: AdOptions = {
-      adId: interstitialAdId,
-      isTesting: true,
-      npa: true
-    };
-    
-    await AdMob.prepareInterstitial(options);
-    await AdMob.showInterstitial();
+    await AdMob.showAppOpenAd({
+      adId: appOpenAdId,
+      isTesting: import.meta.env.MODE !== 'production'
+    });
   } catch (e) {
-    console.error('Failed to show interstitial ad', e);
+    console.error('App open ad failed', e);
   }
 }

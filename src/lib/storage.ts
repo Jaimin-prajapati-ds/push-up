@@ -2,7 +2,6 @@ export interface WorkoutSession {
   id: string;
   date: string;
   durationMinutes: number;
-  calories: number;
   totalReps: number;
   volume: number;
 }
@@ -21,6 +20,8 @@ export function getWorkouts(): WorkoutSession[] {
     return [];
   }
 }
+
+export const getHistory = getWorkouts;
 
 export function getWeeklyStats() {
   const workouts = getWorkouts();
@@ -59,31 +60,35 @@ export function getLifetimeStats() {
 }
 
 export function getStreak(): number {
-  const workouts = getWorkouts().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  if (workouts.length === 0) return 0;
+  const workouts = getWorkouts();
+  // Fix 16: Use unique dates to prevent double-counting same-day workouts
+  const uniqueDates = [...new Set(
+    workouts.map(w => w.date.slice(0, 10)) // "2026-05-14" format
+  )].sort().reverse(); // Latest first
+
+  if (uniqueDates.length === 0) return 0;
 
   let streak = 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date().toISOString().slice(0, 10);
+  let expected = today;
 
-  let currentDateToCheck = today;
+  // Check if latest workout is today or yesterday
+  if (uniqueDates[0] !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+    if (uniqueDates[0] !== yesterdayStr) return 0;
+    expected = yesterdayStr;
+  }
 
-  // Check if there's a workout today or yesterday to start the streak
-  const firstWorkoutDate = new Date(workouts[0].date);
-  firstWorkoutDate.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.floor((today.getTime() - firstWorkoutDate.getTime()) / (1000 * 3600 * 24));
-  if (diffDays > 1) return 0; // Streak broken
-
-  for (let i = 0; i < workouts.length; i++) {
-    const workoutDate = new Date(workouts[i].date);
-    workoutDate.setHours(0, 0, 0, 0);
-
-    if (workoutDate.getTime() === currentDateToCheck.getTime()) {
+  for (const dateStr of uniqueDates) {
+    if (dateStr === expected) {
       streak++;
-      currentDateToCheck.setDate(currentDateToCheck.getDate() - 1);
-    } else if (workoutDate.getTime() < currentDateToCheck.getTime()) {
-      break; // Gap found
+      const d = new Date(expected);
+      d.setDate(d.getDate() - 1);
+      expected = d.toISOString().slice(0, 10);
+    } else if (dateStr < expected) {
+      break;
     }
   }
 
@@ -136,6 +141,7 @@ export function getUserLevel(totalReps: number) {
     title: currentLevel.name,
     progressPercent: progress,
     repsToNext: nextLevel.minReps - totalReps > 0 ? nextLevel.minReps - totalReps : 0,
+    nextLevelReps: nextLevel.minReps,
     nextLevelTitle: nextLevel.name
   };
 }

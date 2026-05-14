@@ -1,15 +1,15 @@
 import { useEffect, useRef } from "react";
-import { CheckCircle, Timer, Flame, Dumbbell, Weight, Share2, Instagram } from "lucide-react";
+import { CheckCircle2, Timer, Dumbbell, Weight, Share2, ChevronRight, Trophy, Zap } from "lucide-react";
 import { saveWorkout } from "@/src/lib/storage";
-import { getUserProfile, calculateCalories, calculateVolume } from "@/src/lib/userProfile";
+import { getUserProfile, calculateVolume } from "@/src/lib/userProfile";
 import { playWorkoutComplete } from "@/src/lib/sounds";
 import { vibrateComplete } from "@/src/lib/haptics";
 import { showInterstitialAd } from "@/src/lib/admob";
 
-export function Summary({ reps, durationSeconds, onDone }: { reps: number; durationSeconds: number; onDone: () => void }) {
+export function Summary({ reps, duration, onClose }: { reps: number; duration: number; onClose: () => void }) {
   const profile = getUserProfile();
-  const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
-  const calories = calculateCalories(durationSeconds, profile.weightKg);
+  const durationMinutes = Math.max(1, Math.round(duration / 60));
+
   const volume = calculateVolume(reps, profile.weightKg);
   
   const savedRef = useRef(false);
@@ -20,7 +20,7 @@ export function Summary({ reps, durationSeconds, onDone }: { reps: number; durat
         id: Date.now().toString(),
         date: new Date().toISOString(),
         durationMinutes,
-        calories,
+
         totalReps: reps,
         volume,
       });
@@ -31,90 +31,91 @@ export function Summary({ reps, durationSeconds, onDone }: { reps: number; durat
   }, []);
 
   const handleDone = async () => {
-    // High Earning Strategy: Show Interstitial when workout ends
-    await showInterstitialAd();
-    onDone();
+    try { await showInterstitialAd(); } catch (e) {}
+    onClose();
   };
 
   const handleShare = async () => {
-    const text = `💪 I just hit ${reps} pushups in ${durationMinutes}m on PushChamp!\n🔥 ${calories} kcal burned\n\nBuilt by @jai._.min2`;
+    const text = `I just hit ${reps} push-ups in ${durationMinutes} min with PushChamp! 💪`;
     if (navigator.share) {
-      try {
-        await navigator.share({ title: 'PushChamp Workout', text });
-      } catch {}
+      try { await navigator.share({ title: 'PushChamp Workout', text }); } catch {}
     } else {
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {}
+      try { await navigator.clipboard.writeText(text); } catch {}
     }
   };
 
   return (
-    <div className="flex-grow flex flex-col items-center justify-center p-5 w-full max-w-7xl mx-auto space-y-8 min-h-screen pt-16">
-      
-      {/* Header */}
-      <div className="text-center space-y-2 w-full">
-        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full border-4 border-primary-container mb-4 shadow-[0_0_30px_rgba(195,244,0,0.3)]">
-          <CheckCircle className="w-12 h-12 text-primary-container" strokeWidth={2} />
+    <div className="flex flex-col min-h-screen bg-[#0A0A0A] text-white p-6 pb-12 overflow-y-auto hide-scrollbar">
+      {/* Success Animation Area */}
+      <div className="flex flex-col items-center justify-center pt-12 pb-8 space-y-4">
+        <div className="relative">
+          <div className="absolute inset-0 bg-[#D4F45D] blur-3xl opacity-20 animate-pulse" />
+          <div className="relative w-32 h-32 bg-[#D4F45D]/10 rounded-full border-2 border-[#D4F45D]/30 flex items-center justify-center shadow-[0_0_50px_rgba(212,244,93,0.1)]">
+            <Trophy className="w-16 h-16 text-[#D4F45D]" strokeWidth={1.5} />
+          </div>
+          <div className="absolute -bottom-2 -right-2 bg-[#D4F45D] text-black p-2 rounded-full shadow-lg">
+            <CheckCircle2 size={24} />
+          </div>
         </div>
-        <h1 className="font-display-lg text-display-lg text-primary uppercase">Workout Complete!</h1>
-        <p className="font-body-lg text-body-lg text-on-surface-variant">You crushed it. Here's your summary.</p>
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-4xl">
-        <div className="bg-surface-container border border-surface-container-highest rounded-xl p-5 flex flex-col items-center justify-center space-y-2 col-span-1">
-          <Timer className="text-primary-container w-7 h-7" strokeWidth={1.5} />
-          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Duration</span>
-          <span className="font-stats-xl text-headline-lg text-primary leading-none">{durationMinutes}<span className="font-headline-lg text-headline-lg-mobile ml-0.5">m</span></span>
-        </div>
-        <div className="bg-surface-container border border-surface-container-highest rounded-xl p-5 flex flex-col items-center justify-center space-y-2 col-span-1">
-          <Flame className="text-primary-container w-7 h-7" strokeWidth={1.5} />
-          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Calories</span>
-          <span className="font-stats-xl text-headline-lg text-primary leading-none">{calories}</span>
-        </div>
-        <div className="bg-surface-container border border-surface-container-highest rounded-xl p-5 flex flex-col items-center justify-center space-y-2 col-span-1">
-          <Dumbbell className="text-primary-container w-7 h-7" strokeWidth={1.5} />
-          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Reps</span>
-          <span className="font-stats-xl text-headline-lg text-primary leading-none">{reps}</span>
-        </div>
-        <div className="bg-surface-container border border-surface-container-highest rounded-xl p-5 flex flex-col items-center justify-center space-y-2 col-span-1">
-          <Weight className="text-primary-container w-7 h-7" strokeWidth={1.5} />
-          <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Volume</span>
-          <span className="font-stats-xl text-headline-lg text-primary leading-none">{(volume / 1000).toFixed(1)}<span className="font-headline-lg text-headline-lg-mobile ml-0.5">k</span></span>
+        <div className="text-center space-y-1">
+          <h1 className="text-4xl font-heading italic leading-none">WORKOUT</h1>
+          <h2 className="text-2xl font-bold tracking-[0.2em] text-[#D4F45D] uppercase leading-none">Complete!</h2>
         </div>
       </div>
 
-      {/* Intensity Zone */}
-      <div className="w-full max-w-4xl bg-surface-container border border-surface-container-highest rounded-xl p-5 flex flex-col items-start space-y-4 relative overflow-hidden h-40">
-        <div className="z-10 w-full flex justify-between items-center">
-          <span className="font-headline-lg text-headline-lg-mobile text-primary uppercase">Intensity</span>
-          <span className="font-label-caps text-label-caps text-primary-container px-3 py-1 bg-surface-container-high rounded-full">
-            {reps > 30 ? 'BEAST MODE' : reps > 15 ? 'PEAK PERFORMANCE' : 'GETTING STARTED'}
-          </span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <SummaryStat icon={<Timer size={20} />} label="Duration" value={durationMinutes} unit="MIN" />
+        <SummaryStat icon={<Dumbbell size={20} />} label="Total Reps" value={reps} unit="REPS" />
+        <SummaryStat icon={<Weight size={20} />} label="Volume" value={(volume / 1000).toFixed(1)} unit="K" />
+        <SummaryStat icon={<Zap size={20} />} label="Pace" value={durationMinutes > 0 ? Math.round(reps / durationMinutes) : 0} unit="RPM" />
+      </div>
+
+      {/* Performance Card */}
+      <div className="bg-[#111] rounded-[2.5rem] p-6 border border-white/5 mb-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10">
+          <Trophy size={80} className="text-[#D4F45D]" />
         </div>
-        <div className="absolute bottom-0 left-0 w-full h-20 flex items-end justify-between px-4 gap-1 opacity-80">
-          {Array.from({ length: 7 }, (_, i) => {
-            const heights = [25, 45, 65, 100, 85, 50, 30];
-            const h = heights[i];
-            return (
-              <div key={i} className={`w-full rounded-t-sm transition-all ${i === 3 ? 'bg-primary-container shadow-[0_-5px_15px_rgba(195,244,0,0.3)]' : h > 60 ? 'bg-primary-fixed/60' : 'bg-surface-container-highest'}`} style={{ height: `${h}%` }} />
-            );
-          })}
+        <div className="relative z-10 space-y-4">
+          <div className="space-y-1">
+            <p className="text-[#D4F45D] font-bold text-[10px] tracking-widest uppercase">Performance Rank</p>
+            <h3 className="text-3xl font-heading text-white">
+              {reps >= 50 ? 'ELITE BEAST' : reps >= 30 ? 'ALPHA CHAMP' : 'RISING STAR'}
+            </h3>
+          </div>
+          <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-[#D4F45D] shadow-[0_0_10px_rgba(212,244,93,0.5)]" style={{ width: `${Math.min(100, reps * 2)}%` }} />
+          </div>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="w-full max-md flex flex-col space-y-3 pt-4">
-        <button onClick={handleDone} className="w-full bg-primary-container text-black font-display-lg text-headline-lg uppercase py-4 rounded-xl shadow-[0_0_20px_rgba(195,244,0,0.2)] hover:bg-surface-tint transition-colors active:scale-95 leading-none">
-          Done
+      {/* Action Buttons */}
+      <div className="mt-auto space-y-3">
+        <button 
+          onClick={handleDone}
+          className="w-full py-6 bg-[#D4F45D] text-black rounded-[2rem] font-black italic uppercase tracking-[0.2em] shadow-[0_4px_30px_rgba(212,244,93,0.3)] active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          FINISH SESSION <ChevronRight size={20} />
         </button>
-        <button onClick={handleShare} className="w-full bg-transparent border-2 border-primary-container text-primary-fixed font-display-lg text-headline-lg uppercase py-4 rounded-xl hover:bg-surface-container transition-colors active:scale-95 flex items-center justify-center gap-2 leading-none">
-          <Share2 className="w-5 h-5" /> Share
+        
+        <button 
+          onClick={handleShare}
+          className="w-full py-5 bg-white/5 border border-white/10 text-white rounded-[2rem] font-bold uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          <Share2 size={18} /> SHARE PROGRESS
         </button>
-        <a href="https://instagram.com/jai._.min2" target="_blank" rel="noopener noreferrer" className="w-full bg-transparent text-on-surface-variant font-label-caps text-label-caps uppercase tracking-widest py-3 flex items-center justify-center gap-2 hover:text-pink-400 transition-colors">
-          <Instagram className="w-4 h-4" /> Built by @jai._.min2
-        </a>
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({ icon, label, value, unit }: { icon: any; label: string; value: string | number; unit: string }) {
+  return (
+    <div className="bg-[#111] p-5 rounded-[2rem] border border-white/5 flex flex-col items-center justify-center space-y-2">
+      <div className="text-[#D4F45D] opacity-60">{icon}</div>
+      <div className="text-center">
+        <p className="text-[28px] font-black italic leading-none text-white">{value}</p>
+        <p className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mt-1">{unit}</p>
       </div>
     </div>
   );

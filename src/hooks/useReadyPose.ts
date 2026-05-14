@@ -16,10 +16,15 @@ export function useReadyPose(
 
   // Load MoveNet detector once
   useEffect(() => {
-    (async () => {
-      const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet);
-      setModel(detector);
-    })();
+    const initModel = async () => {
+      try {
+        const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet);
+        setModel(detector);
+      } catch (e) {
+        console.error('Failed to load Pose Detection model', e);
+      }
+    };
+    initModel();
   }, []);
 
   const checkStanding = useCallback(async (poses: poseDetection.Pose[]) => {
