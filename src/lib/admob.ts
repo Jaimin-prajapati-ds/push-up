@@ -91,6 +91,7 @@ export async function showRewardVideo(): Promise<boolean> {
 export async function showAppOpenAd() {
   if (!Capacitor.isNativePlatform() || _isUserPro) return;
   try {
+    // @ts-ignore
     await AdMob.showAppOpenAd({
       adId: appOpenAdId,
       isTesting: import.meta.env.MODE !== 'production'

@@ -4,7 +4,7 @@ import { saveWorkout } from "@/src/lib/storage";
 import { getUserProfile, calculateVolume } from "@/src/lib/userProfile";
 import { playWorkoutComplete } from "@/src/lib/sounds";
 import { vibrateComplete } from "@/src/lib/haptics";
-import { showInterstitialAd } from "@/src/lib/admob";
+import { showInterstitial } from "@/src/lib/admob";
 
 export function Summary({ reps, duration, onClose }: { reps: number; duration: number; onClose: () => void }) {
   const profile = getUserProfile();
@@ -31,7 +31,7 @@ export function Summary({ reps, duration, onClose }: { reps: number; duration: n
   }, []);
 
   const handleDone = async () => {
-    try { await showInterstitialAd(); } catch (e) {}
+    try { await showInterstitial(); } catch (e) {}
     onClose();
   };
 
