@@ -7,8 +7,8 @@ android {
         applicationId "com.pushchamp.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13
-        versionName "2.1"
+        versionCode 16
+        versionName "2.4"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -19,9 +19,9 @@ android {
     signingConfigs {
         release {
             storeFile file('pushchamp.keystore')
-            storePassword 'pushchamp123'
-            keyAlias 'pushchamp_alias'
-            keyPassword 'pushchamp123'
+            storePassword PUSHCHAMP_RELEASE_STORE_PASSWORD
+            keyAlias PUSHCHAMP_RELEASE_KEY_ALIAS
+            keyPassword PUSHCHAMP_RELEASE_KEY_PASSWORD
         }
     }
     buildTypes {

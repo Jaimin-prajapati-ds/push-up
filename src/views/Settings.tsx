@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { getAppSettings, saveAppSettings, type AppSettings } from '@/src/lib/userProfile';
-import { ChevronLeft, Volume2, VolumeX, Smartphone, Zap, Eye, Timer, Trash2, ExternalLink, Star } from 'lucide-react';
-import { Purchases } from '@revenuecat/purchases-capacitor';
+import { ChevronLeft, Volume2, VolumeX, Smartphone, Zap, Eye, Timer, Trash2, ExternalLink, Gauge, Target } from 'lucide-react';
 
 export function Settings({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<AppSettings>(getAppSettings());
@@ -22,86 +21,21 @@ export function Settings({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen pb-32 pt-20">
-      <header className="bg-surface/70 backdrop-blur-md border-b border-surface-container-highest fixed top-0 left-0 w-full z-50 flex items-center px-4 h-16">
-        <button onClick={onBack} className="text-on-surface-variant hover:text-primary p-2 rounded-full hover:bg-surface-container-high transition-colors">
+    <div className="flex flex-col min-h-screen bg-black text-white pb-32 pt-20">
+      <header className="bg-black/70 backdrop-blur-md border-b border-white/10 fixed top-0 left-0 w-full z-50 flex items-center px-4 h-16">
+        <button onClick={onBack} className="text-gray-400 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors">
           <ChevronLeft className="w-6 h-6" />
         </button>
-        <h1 className="font-display-lg text-headline-lg italic uppercase text-primary tracking-wider flex-1 text-center pr-10">SETTINGS</h1>
+        <h1 className="font-heading text-xl italic uppercase text-white tracking-wider flex-1 text-center pr-10">SETTINGS</h1>
       </header>
 
       <main className="max-w-lg mx-auto px-5 w-full flex flex-col gap-6">
-        {/* PushChamp PRO */}
-        <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-primary-fixed uppercase tracking-widest px-1 mb-2">Premium</h2>
-          <div className="bg-gradient-to-br from-surface-container to-surface-container-high border border-primary-fixed/30 rounded-xl overflow-hidden relative group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/10 blur-3xl rounded-full -mr-10 -mt-10 transition-all group-hover:bg-primary-fixed/20" />
-            <div className="p-5 flex flex-col gap-4 relative z-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
-                  <Star className="w-5 h-5 text-black fill-black" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-headline-lg text-[18px] text-primary uppercase leading-tight">PushChamp PRO</span>
-                  <span className="font-body-md text-on-surface-variant text-sm">Remove all ads forever.</span>
-                </div>
-              </div>
-              
-              <button 
-                onClick={async () => {
-                  try {
-                    const offerings = await Purchases.getOfferings();
-                    const pkg = offerings.current?.availablePackages[0];
-                    if (!pkg) {
-                      alert('No purchase options available. Try again later.');
-                      return;
-                    }
-                    const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
-                    const isPro = customerInfo.entitlements.active['pro'] !== undefined;
-                    if (isPro) {
-                      alert('Welcome to PushChamp Pro!');
-                      window.location.reload();
-                    }
-                  } catch (e: any) {
-                    if (e.code !== '1') { // 1 = user cancelled
-                      alert('Purchase failed. Please try again.');
-                    }
-                  }
-                }}
-                className="w-full py-3 bg-primary-fixed text-black rounded-lg font-headline-lg text-[16px] uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-fixed-dim transition-colors"
-              >
-                Upgrade to Pro • $1.99/mo
-              </button>
-              
-              <button 
-                onClick={async () => {
-                  try {
-                    const { restorePurchases } = await import('../lib/subscription');
-                    const isPro = await restorePurchases();
-                    if (isPro) {
-                      alert('Purchases restored successfully!');
-                      window.location.reload();
-                    } else {
-                      alert('No active subscriptions found.');
-                    }
-                  } catch (e) {
-                    alert('Restore failed. Please try again.');
-                  }
-                }}
-                className="w-full py-2 text-on-surface-variant font-label-caps text-[12px] uppercase tracking-widest hover:text-primary transition-colors"
-              >
-                Restore Purchases
-              </button>
-            </div>
-          </div>
-        </section>
-
         {/* Sound & Haptics */}
         <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">Feedback</h2>
-          <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden">
+          <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">Feedback</h2>
+          <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
             <ToggleRow icon={settings.soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />} label="Sound Effects" value={settings.soundEnabled} onChange={v => updateSetting('soundEnabled', v)} />
-            <ToggleRow icon={<Zap className="w-5 h-5 text-primary-fixed" />} label="AI Voice Coaching" value={settings.voiceEnabled || false} onChange={v => updateSetting('voiceEnabled', v)} border />
+            <ToggleRow icon={<Zap className="w-5 h-5 text-[#D4F45D]" />} label="AI Voice Coaching" value={settings.voiceEnabled || false} onChange={v => updateSetting('voiceEnabled', v)} border />
             <ToggleRow icon={<Smartphone className="w-5 h-5" />} label="Vibration" value={settings.vibrationEnabled} onChange={v => updateSetting('vibrationEnabled', v)} border />
             <ToggleRow icon={<Eye className="w-5 h-5" />} label="Keep Screen On" value={settings.keepScreenOn} onChange={v => updateSetting('keepScreenOn', v)} border />
           </div>
@@ -109,14 +43,14 @@ export function Settings({ onBack }: { onBack: () => void }) {
 
         {/* Detection */}
         <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">Detection</h2>
-          <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden">
+          <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">Detection</h2>
+          <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
             <div className="p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Zap className="w-5 h-5 text-on-surface-variant" />
+                <Zap className="w-5 h-5 text-gray-400" />
                 <div className="flex flex-col">
-                  <span className="font-body-md text-on-surface">AI Model</span>
-                  <span className="font-label-caps text-label-caps text-on-surface-variant">
+                  <span className="text-sm text-white">AI Model</span>
+                  <span className="text-[10px] text-gray-400">
                     {settings.modelType === 'thunder' ? 'Thunder (Accurate)' : 'Lightning (Fast)'}
                   </span>
                 </div>
@@ -124,38 +58,70 @@ export function Settings({ onBack }: { onBack: () => void }) {
               <select
                 value={settings.modelType}
                 onChange={e => updateSetting('modelType', e.target.value as 'lightning' | 'thunder')}
-                className="bg-surface border border-surface-variant rounded-lg px-3 py-1.5 text-on-surface text-sm focus:outline-none focus:border-primary-fixed"
+                className="bg-black border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#D4F45D]"
               >
                 <option value="lightning">Lightning</option>
                 <option value="thunder">Thunder</option>
               </select>
             </div>
-            <div className="p-4 flex items-center justify-between border-t border-surface-container-highest">
+            <div className="p-4 flex items-center justify-between border-t border-white/10">
               <div className="flex items-center gap-3">
-                <Timer className="w-5 h-5 text-on-surface-variant" />
+                <Timer className="w-5 h-5 text-gray-400" />
                 <div className="flex flex-col">
-                  <span className="font-body-md text-on-surface">Countdown</span>
-                  <span className="font-label-caps text-label-caps text-on-surface-variant">{settings.countdownSeconds}s before workout</span>
+                  <span className="text-sm text-white">Countdown</span>
+                  <span className="text-[10px] text-gray-400">{settings.countdownSeconds}s before workout</span>
                 </div>
               </div>
               <select
                 value={settings.countdownSeconds}
                 onChange={e => updateSetting('countdownSeconds', Number(e.target.value))}
-                className="bg-surface border border-surface-variant rounded-lg px-3 py-1.5 text-on-surface text-sm focus:outline-none focus:border-primary-fixed"
+                className="bg-black border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#D4F45D]"
               >
                 <option value={3}>3s</option>
                 <option value={5}>5s</option>
                 <option value={10}>10s</option>
               </select>
             </div>
+            <div className="p-4 flex items-center justify-between border-t border-white/10">
+              <div className="flex items-center gap-3">
+                <Gauge className="w-5 h-5 text-gray-400" />
+                <div className="flex flex-col">
+                  <span className="text-sm text-white">Sensitivity</span>
+                  <span className="text-[10px] text-gray-400">
+                    {settings.confidenceThreshold === 0.3 ? 'Low (easier)' : settings.confidenceThreshold === 0.45 ? 'Medium' : 'High (precise)'}
+                  </span>
+                </div>
+              </div>
+              <select
+                value={settings.confidenceThreshold}
+                onChange={e => updateSetting('confidenceThreshold', Number(e.target.value))}
+                className="bg-black border border-white/20 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:border-[#D4F45D]"
+              >
+                <option value={0.3}>Low</option>
+                <option value={0.45}>Medium</option>
+                <option value={0.6}>High</option>
+              </select>
+            </div>
+            <div className="p-4 flex items-center justify-between border-t border-white/10">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-gray-400" />
+                <div className="flex flex-col">
+                  <span className="text-sm text-white">Angle Thresholds</span>
+                  <span className="text-[10px] text-gray-400">Down {'<'} 90° | Up {'>'} 155°</span>
+                </div>
+              </div>
+              <div className="text-[10px] text-gray-400 bg-black/50 px-2 py-1 rounded">
+                Default
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Backup & Sync */}
         <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">Backup & Restore</h2>
-          <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden p-4 flex flex-col gap-3">
-            <p className="font-body-md text-on-surface-variant text-sm">Save your progress manually to your device to prevent data loss.</p>
+          <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">Backup & Restore</h2>
+          <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden p-4 flex flex-col gap-3">
+            <p className="text-sm text-gray-400">Save your progress manually to your device to prevent data loss.</p>
             <div className="flex gap-3 mt-1">
               <button 
                 onClick={() => {
@@ -172,11 +138,11 @@ export function Settings({ onBack }: { onBack: () => void }) {
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
-                className="flex-1 py-2 bg-surface-container-high text-on-surface rounded-lg font-label-caps text-label-caps uppercase tracking-widest border border-surface-container-highest hover:bg-surface-variant transition-colors"
+                className="flex-1 py-2 bg-white/10 text-white rounded-lg text-[10px] uppercase tracking-widest border border-white/10 hover:bg-white/20 transition-colors"
               >
                 Export Data
               </button>
-              <label className="flex-1 py-2 bg-surface-container-high text-on-surface rounded-lg font-label-caps text-label-caps uppercase tracking-widest border border-surface-container-highest hover:bg-surface-variant transition-colors flex items-center justify-center cursor-pointer">
+              <label className="flex-1 py-2 bg-white/10 text-white rounded-lg text-[10px] uppercase tracking-widest border border-white/10 hover:bg-white/20 transition-colors flex items-center justify-center cursor-pointer">
                 <span>Import Data</span>
                 <input 
                   type="file" 
@@ -194,7 +160,7 @@ export function Settings({ onBack }: { onBack: () => void }) {
                         if (data.settings) localStorage.setItem('pushchamp_settings', data.settings);
                         alert("Data imported successfully! The app will now reload.");
                         window.location.reload();
-                      } catch (error) {
+                      } catch {
                         alert("Invalid backup file.");
                       }
                     };
@@ -208,44 +174,44 @@ export function Settings({ onBack }: { onBack: () => void }) {
 
         {/* Developer */}
         <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest px-1 mb-2">About</h2>
-          <div className="bg-surface-container border border-surface-container-highest rounded-xl overflow-hidden">
+          <h2 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">About</h2>
+          <div className="bg-[#111] border border-white/10 rounded-xl overflow-hidden">
             <a 
               href="https://jaimin-prajapati-ds.github.io/push-up/privacy.html" 
               target="_blank" 
-              className="p-4 flex items-center justify-between hover:bg-surface-variant transition-colors"
+              className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
             >
-              <div className="flex items-center gap-3 text-on-surface">
+              <div className="flex items-center gap-3 text-white">
                 <Eye className="w-5 h-5" />
-                <span className="font-body-md">Privacy Policy</span>
+                <span className="text-sm">Privacy Policy</span>
               </div>
-              <ExternalLink className="w-4 h-4 text-on-surface-variant" />
+              <ExternalLink className="w-4 h-4 text-gray-400" />
             </a>
-            <div className="p-4 flex items-center justify-between border-t border-surface-container-highest">
-              <div className="flex items-center gap-3 text-on-surface">
+            <div className="p-4 flex items-center justify-between border-t border-white/10">
+              <div className="flex items-center gap-3 text-white">
                 <Smartphone className="w-5 h-5" />
-                <span className="font-body-md">Version</span>
+                <span className="text-sm">Version</span>
               </div>
-              <span className="font-label-caps text-label-caps text-on-surface-variant">2.1.0</span>
+              <span className="text-[10px] text-gray-400">2.4.0</span>
             </div>
           </div>
         </section>
 
         {/* Danger Zone */}
         <section className="flex flex-col gap-1">
-          <h2 className="font-label-caps text-label-caps text-red-500 uppercase tracking-widest px-1 mb-2">Danger Zone</h2>
-          <div className="bg-surface-container border border-red-500/20 rounded-xl overflow-hidden">
+          <h2 className="text-[10px] font-bold text-red-500 uppercase tracking-widest px-1 mb-2">Danger Zone</h2>
+          <div className="bg-[#111] border border-red-500/20 rounded-xl overflow-hidden">
             {!showReset ? (
               <button onClick={() => setShowReset(true)} className="p-4 flex items-center gap-3 w-full hover:bg-red-500/10 transition-colors">
                 <Trash2 className="w-5 h-5 text-red-500" />
-                <span className="font-body-md text-red-500">Reset All Data</span>
+                <span className="text-sm text-red-500">Reset All Data</span>
               </button>
             ) : (
               <div className="p-4 flex flex-col gap-3">
-                <p className="font-body-md text-red-500">This will delete ALL your workout history and profile data. This cannot be undone.</p>
+                <p className="text-sm text-red-500">This will delete ALL your workout history and profile data. This cannot be undone.</p>
                 <div className="flex gap-3">
-                  <button onClick={() => setShowReset(false)} className="flex-1 py-2 bg-surface-container-high text-on-surface rounded-lg font-label-caps text-label-caps uppercase tracking-widest">Cancel</button>
-                  <button onClick={handleReset} className="flex-1 py-2 bg-red-500 text-white rounded-lg font-label-caps text-label-caps uppercase tracking-widest">Delete Everything</button>
+                  <button onClick={() => setShowReset(false)} className="flex-1 py-2 bg-white/10 text-white rounded-lg text-[10px] uppercase tracking-widest">Cancel</button>
+                  <button onClick={handleReset} className="flex-1 py-2 bg-red-500 text-white rounded-lg text-[10px] uppercase tracking-widest">Delete Everything</button>
                 </div>
               </div>
             )}
@@ -256,16 +222,16 @@ export function Settings({ onBack }: { onBack: () => void }) {
   );
 }
 
-function ToggleRow({ icon, label, value, onChange, border }: { icon: React.ReactNode; label: string; value: boolean; onChange: (v: boolean) => void; border?: boolean }) {
+function ToggleRow({ icon, label, value, onChange, border }: { icon: ReactNode; label: string; value: boolean; onChange: (v: boolean) => void; border?: boolean }) {
   return (
-    <div className={`p-4 flex items-center justify-between ${border ? 'border-t border-surface-container-highest' : ''}`}>
+    <div className={`p-4 flex items-center justify-between ${border ? 'border-t border-white/10' : ''}`}>
       <div className="flex items-center gap-3">
-        <span className="text-on-surface-variant">{icon}</span>
-        <span className="font-body-md text-on-surface">{label}</span>
+        <span className="text-gray-400">{icon}</span>
+        <span className="text-sm text-white">{label}</span>
       </div>
       <button
         onClick={() => onChange(!value)}
-        className={`w-12 h-7 rounded-full transition-colors relative ${value ? 'bg-primary-fixed' : 'bg-surface-container-highest'}`}
+        className={`w-12 h-7 rounded-full transition-colors relative ${value ? 'bg-[#D4F45D]' : 'bg-white/20'}`}
       >
         <div className={`w-5 h-5 rounded-full bg-white shadow-md absolute top-1 transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`} />
       </button>

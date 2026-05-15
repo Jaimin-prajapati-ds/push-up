@@ -32,10 +32,7 @@ export default function PermissionScreen({ onGranted }: { onGranted: () => void 
   useEffect(() => {
     checkPermissions();
 
-    // Heartbeat to ensure UI stays in sync
-    const interval = setInterval(checkPermissions, 1000);
-
-    // DEEP FIX: Re-check when app returns to foreground (useful if user went to settings)
+    // Re-check when app returns to foreground (useful if user went to settings)
     const listener = App.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
         checkPermissions();
@@ -43,7 +40,6 @@ export default function PermissionScreen({ onGranted }: { onGranted: () => void 
     });
 
     return () => {
-      clearInterval(interval);
       listener.then(l => l.remove());
     };
   }, [checkPermissions]);

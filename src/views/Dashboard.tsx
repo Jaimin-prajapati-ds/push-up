@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { Bell, Calendar, TrendingUp, Trophy, Dumbbell, Target, CheckCircle2, ChevronRight, Shield, Zap, Star } from "lucide-react";
+import { Bell, Calendar, TrendingUp, Trophy, Dumbbell, Target, CheckCircle2, ChevronRight, Shield, Zap } from "lucide-react";
 import { getWorkouts, getWeeklyStats, getLifetimeStats, getStreak, getTotalLifetimeReps, getUserLevel } from "@/src/lib/storage";
-import { getUserProfile, calculateVolume } from "@/src/lib/userProfile";
+import { getUserProfile } from "@/src/lib/userProfile";
 import { showBannerAd, hideBannerAd } from "@/src/lib/admob";
 
 export function Dashboard({ onStartWorkout, onOpenSettings }: { onStartWorkout: () => void; onOpenSettings: () => void }) {
@@ -22,8 +22,7 @@ export function Dashboard({ onStartWorkout, onOpenSettings }: { onStartWorkout: 
   const userLevel = getUserLevel(totalReps);
   
   const weeklyGoal = profile.weeklyGoalReps || 200;
-  // Fix 15: Correct progress calculation based on volume/reps
-  const progressPercent = Math.min(100, Math.floor((stats.totalVolume / weeklyGoal) * 100));
+  const progressPercent = Math.min(100, Math.floor((stats.totalVolume / (weeklyGoal * profile.weightKg * 0.64)) * 100));
 
   // Fix 13: Calculate dynamic bar heights
   const dayReps = [0, 0, 0, 0, 0, 0, 0]; // Mon to Sun
@@ -159,7 +158,7 @@ export function Dashboard({ onStartWorkout, onOpenSettings }: { onStartWorkout: 
           <div className="flex justify-between items-center gap-4 px-2 overflow-x-auto hide-scrollbar pb-2">
             <Badge icon={<Shield size={20} />} value={userLevel.levelNumber} label="LEVEL" />
             <Badge icon={<CheckCircle2 size={20} />} value={lifetime.totalWorkouts} label="WORKOUTS" />
-            <Badge icon={<Star size={20} />} value={lifetime.maxReps} label="MAX REPS" />
+            <Badge icon={<Zap size={20} />} value={lifetime.maxReps} label="MAX REPS" />
             <Badge icon={<TrendingUp size={20} />} value="PRO" label="STATUS" />
           </div>
         </section>

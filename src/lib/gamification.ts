@@ -2,15 +2,13 @@ export interface PassLevel {
   level: number;
   xpRequired: number;
   reward: string;
-  isPremium: boolean;
   type: 'badge' | 'avatar' | 'theme' | 'booster';
 }
 
 export const PUSH_PASS_LEVELS: PassLevel[] = Array.from({ length: 50 }, (_, i) => ({
   level: i + 1,
   xpRequired: (i + 1) * 500,
-  reward: i % 5 === 0 ? 'Premium Avatar' : 'XP Booster',
-  isPremium: i % 2 !== 0,
+  reward: i % 5 === 0 ? 'Exclusive Avatar' : 'XP Booster',
   type: i % 5 === 0 ? 'avatar' : 'booster',
 }));
 
@@ -18,7 +16,6 @@ export interface UserStats {
   xp: number;
   level: number;
   unlockedRewards: string[];
-  isSubscriber: boolean;
 }
 
 export function calculateXP(reps: number, durationSeconds: number): number {

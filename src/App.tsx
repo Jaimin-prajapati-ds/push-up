@@ -12,10 +12,8 @@ import { Settings } from './views/Settings';
 import { completeOnboarding, hasCompletedOnboarding } from './lib/userProfile';
 import { scheduleDailyReminder } from './lib/notifications';
 import { initializeAdMob } from './lib/admob';
-import { initializePurchases, isUserSubscriber } from './lib/subscription';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Camera } from '@capacitor/camera';
-import { setAdProStatus } from './lib/admob';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
@@ -23,7 +21,6 @@ export default function App() {
   const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
   const [lastWorkoutData, setLastWorkoutData] = useState<{ reps: number; duration: number } | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [isSubscriber, setIsSubscriber] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -31,18 +28,11 @@ export default function App() {
         await initializeAdMob();
         const { showAppOpenAd } = await import('./lib/admob');
         await showAppOpenAd();
-        await initializePurchases();
-        await scheduleDailyReminder(); // Schedule notifications on launch
+        await scheduleDailyReminder();
         
         const isDone = hasCompletedOnboarding();
         setOnboarded(isDone);
-        
-        // Check subscriber status
-        const subStatus = await isUserSubscriber();
-        setIsSubscriber(subStatus);
-        setAdProStatus(subStatus);
 
-        // Fix 1: Check permissions on launch
         const savedPerm = localStorage.getItem('pushchamp_cam_perm') === 'true';
         if (savedPerm) {
           setHasPermissions(true);
@@ -56,11 +46,10 @@ export default function App() {
           }
         }
 
-        // Hide splash after logic
         setTimeout(() => {
           SplashScreen.hide();
           setIsInitializing(false);
-        }, 300); // Super snappy launch
+        }, 300);
       } catch (e) {
         setIsInitializing(false);
       }
@@ -76,12 +65,7 @@ export default function App() {
   const handleWorkoutStop = async (reps: number, duration: number) => {
     setLastWorkoutData({ reps, duration });
     setCurrentView('summary');
-    
-    // Earning: Show full-screen ad when workout ends
-    try {
-      const { showInterstitial } = await import('./lib/admob');
-      await showInterstitial();
-    } catch (e) {}
+    // Interstitial shown in Summary.tsx on "FINISH SESSION" to avoid double ads
   };
 
   if (isInitializing) return null;
@@ -108,7 +92,7 @@ export default function App() {
       case 'profile':
         return <Profile onOpenSettings={() => setCurrentView('settings')} />;
       case 'pass':
-        return <PushPass isSubscriber={isSubscriber} />;
+        return <PushPass />;
       case 'summary':
         return <Summary 
           reps={lastWorkoutData?.reps || 0} 

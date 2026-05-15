@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Calendar, ChevronRight, TrendingUp, Dumbbell } from 'lucide-react';
+import { Clock, ChevronRight, Dumbbell } from 'lucide-react';
 import { getHistory } from '@/src/lib/storage';
 
 export default function History() {

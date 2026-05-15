@@ -35,12 +35,12 @@ export function Countdown({ seconds, onComplete }: CountdownProps) {
   }, [count, onComplete]);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-xl flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center">
       {/* Pulsing background glow */}
-      <div className="absolute w-64 h-64 bg-primary-fixed/20 rounded-full blur-[100px] animate-pulse" />
+      <div className="absolute w-64 h-64 bg-[#D4F45D]/20 rounded-full blur-[100px] animate-pulse" />
       
       <div className="relative flex flex-col items-center gap-8">
-        <span className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-[0.3em]">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em]">
           GET IN POSITION
         </span>
         
@@ -49,11 +49,11 @@ export function Countdown({ seconds, onComplete }: CountdownProps) {
           style={{ transform: `scale(${scale})` }}
         >
           {count > 0 ? (
-            <span className="font-stats-xl text-[120px] leading-none text-primary-fixed drop-shadow-[0_0_40px_rgba(195,244,0,0.5)]">
+            <span className="font-heading text-[120px] leading-none text-[#D4F45D] drop-shadow-[0_0_40px_rgba(195,244,0,0.5)]">
               {count}
             </span>
           ) : (
-            <span className="font-stats-xl text-[80px] leading-none text-primary-container drop-shadow-[0_0_40px_rgba(195,244,0,0.8)]">
+            <span className="font-heading text-[80px] leading-none text-[#D4F45D] drop-shadow-[0_0_40px_rgba(195,244,0,0.8)]">
               GO!
             </span>
           )}
@@ -61,14 +61,14 @@ export function Countdown({ seconds, onComplete }: CountdownProps) {
 
         <div className="flex flex-col items-center gap-3 mt-4">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-primary-fixed rounded-full animate-pulse" />
-            <span className="font-body-md text-body-md text-on-surface-variant">
+            <div className="w-2 h-2 bg-[#D4F45D] rounded-full animate-pulse" />
+            <span className="text-sm text-gray-400">
               Place phone on floor, lean against something
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-primary-fixed rounded-full animate-pulse" />
-            <span className="font-body-md text-body-md text-on-surface-variant">
+            <div className="w-2 h-2 bg-[#D4F45D] rounded-full animate-pulse" />
+            <span className="text-sm text-gray-400">
               Position yourself side-on to camera
             </span>
           </div>
